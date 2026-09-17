@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#050712" />
+  <title>Saeid Brain — Amir Saeid Dehghan</title>
+  <meta name="description" content="Saeid Brain — an interactive 3D portfolio experience by Amir Saeid Dehghan." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050712;
+      --panel: rgba(11, 15, 30, .54);
+      --line: rgba(255,255,255,.11);
+      --text: #f7f8ff;
+      --muted: #9aa6c3;
+      --accent: #78d7ff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { color: var(--text); }
+    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+    .noise {
+      pointer-events: none; position: fixed; inset: 0; z-index: 5; opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+      mix-blend-mode: screen;
+    }
+    .vignette { pointer-events:none; position:fixed; inset:0; z-index:4; background:radial-gradient(circle at 50% 48%, transparent 35%, rgba(1,2,8,.28) 67%, rgba(1,2,8,.76) 100%); }
+
+    header {
+      position: fixed; top: max(18px, env(safe-area-inset-top)); left: 20px; right: 20px; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      pointer-events: none;
+    }
+    .brand { display:flex; align-items:center; gap:10px; letter-spacing:.16em; font-size:11px; font-weight:600; color:#dfe7ff; text-transform:uppercase; }
+    .brand-dot { width:8px; height:8px; border-radius:50%; background:#8ee7ff; box-shadow:0 0 18px #71dcff; }
+    .status { padding:9px 12px; border:1px solid var(--line); border-radius:999px; background:rgba(8,12,24,.38); backdrop-filter:blur(18px); color:#aeb8d3; font-size:11px; letter-spacing:.08em; }
+
+    .hero-copy { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(34px, env(safe-area-inset-bottom)); z-index: 15; width:min(92vw, 660px); text-align:center; pointer-events:none; transition: opacity .6s ease, transform .6s ease; }
+    .eyebrow { font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#9eb5d9; margin-bottom:9px; }
+    h1 { margin:0; font-size:clamp(24px, 4vw, 48px); font-weight:500; letter-spacing:-.04em; line-height:1; }
+    .hero-copy p { margin:12px auto 0; color:#9da9c4; line-height:1.55; font-size:clamp(12px, 1.7vw, 14px); max-width:520px; }
+    .hint { margin-top:16px; display:inline-flex; align-items:center; gap:8px; padding:9px 13px; border-radius:999px; border:1px solid rgba(255,255,255,.11); background:rgba(8,12,26,.5); backdrop-filter:blur(16px); color:#e3e9fb; font-size:11px; }
+    .pulse { width:6px; height:6px; border-radius:50%; background:#8fe8ff; box-shadow:0 0 0 0 rgba(143,232,255,.55); animation:pulse 2s infinite; }
+    @keyframes pulse { 70% { box-shadow:0 0 0 9px rgba(143,232,255,0);} 100% { box-shadow:0 0 0 0 rgba(143,232,255,0);} }
+
+    .brain-ui { position: fixed; inset:0; z-index:16; pointer-events:none; opacity:0; transition:opacity .6s ease; }
+    .brain-ui.visible { opacity:1; }
+    .brain-title { position:absolute; top:84px; left:50%; transform:translateX(-50%); text-align:center; width:min(90vw, 720px); }
+    .brain-title .small { font-size:10px; text-transform:uppercase; letter-spacing:.3em; color:#98aaca; }
+    .brain-title h2 { margin:8px 0 0; font-size:clamp(24px,3.5vw,42px); font-weight:500; letter-spacing:-.04em; }
+    .brain-title p { margin:8px 0 0; color:#8794b2; font-size:12px; }
+
+    #lobeCard {
+      position:absolute; left:50%; bottom:max(26px, env(safe-area-inset-bottom)); transform:translate(-50%, 16px);
+      width:min(92vw, 540px); padding:15px 17px; border:1px solid rgba(255,255,255,.12); border-radius:18px;
+      background:rgba(8,12,25,.58); backdrop-filter:blur(22px) saturate(140%); box-shadow:0 24px 70px rgba(0,0,0,.34);
+      opacity:0; transition:.28s ease; display:flex; align-items:center; justify-content:space-between; gap:15px;
+    }
+    #lobeCard.show { opacity:1; transform:translate(-50%, 0); }
+    #lobeCard .meta { min-width:0; }
+    #lobeCard .kicker { font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:#90a0bc; margin-bottom:4px; }
+    #lobeName { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #lobeDest { margin-top:4px; font-size:11px; color:#9aa7c3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #openLabel { font-size:11px; color:white; border:1px solid rgba(255,255,255,.13); border-radius:999px; padding:9px 12px; background:rgba(255,255,255,.06); flex:0 0 auto; }
+
+    #backBtn {
+      position:fixed; top:max(72px, calc(env(safe-area-inset-top) + 54px)); left:20px; z-index:22;
+      opacity:0; pointer-events:none; transform:translateY(-6px); transition:.3s ease;
+      border:1px solid rgba(255,255,255,.12); background:rgba(7,10,21,.52); color:#dbe4fb; backdrop-filter:blur(18px);
+      padding:10px 13px; border-radius:999px; font:500 11px Inter,sans-serif; cursor:pointer;
+    }
+    #backBtn.show { opacity:1; pointer-events:auto; transform:translateY(0); }
+
+    .legend { position:fixed; right:20px; top:50%; transform:translateY(-50%); z-index:17; width:160px; opacity:0; transition:.5s ease; pointer-events:none; }
+    .legend.visible { opacity:1; }
+    .legend-item { display:flex; align-items:center; gap:8px; margin:10px 0; color:#9ba8c3; font-size:10px; }
+    .swatch { width:7px; height:7px; border-radius:50%; box-shadow:0 0 12px currentColor; }
+
+    .loading { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:#050712; transition:opacity .7s ease, visibility .7s ease; }
+    .loading.done { opacity:0; visibility:hidden; }
+    .loader-inner { text-align:center; }
+    .loader-ring { width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,255,255,.1); border-top-color:#8be4ff; margin:0 auto 14px; animation:spin .9s linear infinite; box-shadow:0 0 24px rgba(118,221,255,.15); }
+    @keyframes spin { to { transform:rotate(360deg);} }
+    .loader-inner span { color:#9aa6c2; font-size:10px; letter-spacing:.22em; text-transform:uppercase; }
+
+    @media (max-width: 720px) {
+      header { left:14px; right:14px; top:max(12px, env(safe-area-inset-top)); }
+      .status { display:none; }
+      .brain-title { top:max(70px, calc(env(safe-area-inset-top) + 58px)); }
+      .legend { display:none; }
+      #backBtn { left:14px; top:max(56px, calc(env(safe-area-inset-top) + 44px)); }
+      .hero-copy { bottom:max(24px, env(safe-area-inset-bottom)); }
+      .hero-copy p { padding:0 14px; }
+      #lobeCard { width:calc(100vw - 28px); bottom:max(16px, env(safe-area-inset-bottom)); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div class="vignette"></div>
+  <div class="noise"></div>
+
+  <div class="loading" id="loading">
+    <div class="loader-inner"><div class="loader-ring"></div><span>Mapping the mind</span></div>
+  </div>
+
+  <header>
+    <div class="brand"><span class="brand-dot"></span> SAEID BRAIN</div>
+    <div class="status" id="statusText">INTERACTIVE PORTFOLIO · 3D</div>
+  </header>
+
+  <button id="backBtn" aria-label="Back to pen">← Back to pen</button>
+
+  <section class="hero-copy" id="heroCopy">
+    <div class="eyebrow">Amir Saeid Dehghan</div>
+    <h1>A signature opens the mind.</h1>
+    <p>Enter a tactile 3D portfolio where every lobe of the brain leads to a different part of my creative world.</p>
+    <div class="hint"><span class="pulse"></span> Tap the pen to enter</div>
+  </section>
+
+  <div class="brain-ui" id="brainUI">
+    <div class="brain-title">
+      <div class="small">Neural Portfolio Map</div>
+      <h2>Explore the glowing lobes</h2>
+      <p>Rotate the brain, zoom in, then select a region.</p>
+    </div>
+    <div id="lobeCard">
+      <div class="meta">
+        <div class="kicker">Selected lobe</div>
+        <div id="lobeName">Frontal Lobe</div>
+        <div id="lobeDest">Personal Website</div>
+      </div>
+      <div id="openLabel">Open ↗</div>
+    </div>
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="legend-item"><span class="swatch" style="color:#4ae7ff;background:#4ae7ff"></span>Frontal · Main site</div>
+    <div class="legend-item"><span class="swatch" style="color:#b875ff;background:#b875ff"></span>Parietal · Second site</div>
+    <div class="legend-item"><span class="swatch" style="color:#ff6ab9;background:#ff6ab9"></span>Temporal · Behance</div>
+    <div class="legend-item"><span class="swatch" style="color:#ffbc54;background:#ffbc54"></span>Occipital · YouTube</div>
+  </div>
+
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const canvas = document.querySelector('#scene');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.28;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050712);
+    scene.fog = new THREE.FogExp2(0x050712, 0.028);
+
+    const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, .1, 120);
+    camera.position.set(0, .2, 10.7);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enabled = false;
+    controls.enableDamping = true;
+    controls.dampingFactor = .055;
+    controls.minDistance = 5.7;
+    controls.maxDistance = 11;
+    controls.enablePan = false;
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = .45;
+    controls.target.set(0, .1, 0);
+
+    const ambient = new THREE.HemisphereLight(0x9ccfff, 0x050611, 1.25);
+    scene.add(ambient);
+    const key = new THREE.DirectionalLight(0xe6f4ff, 3.2); key.position.set(5,6,7); key.castShadow = true; scene.add(key);
+    const cyan = new THREE.PointLight(0x35cfff, 36, 24, 2); cyan.position.set(-5,2,4); scene.add(cyan);
+    const purple = new THREE.PointLight(0xa466ff, 28, 20, 2); purple.position.set(5,-1,2); scene.add(purple);
+
+    // Cinematic star field
+    const starCount = innerWidth < 700 ? 750 : 1500;
+    const starGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(starCount * 3);
+    for (let i=0;i<starCount;i++) {
+      positions[i*3] = (Math.random()-.5)*36;
+      positions[i*3+1] = (Math.random()-.5)*22;
+      positions[i*3+2] = -4 - Math.random()*28;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const starMat = new THREE.PointsMaterial({ color:0x759bd0, size:.026, transparent:true, opacity:.55, sizeAttenuation:true });
+    const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
+
+    // Subtle halo rings behind subject
+    const ringGroup = new THREE.Group();
+    for (let i=0;i<5;i++) {
+      const geo = new THREE.TorusGeometry(3.5+i*.72, .007, 6, 180);
+      const mat = new THREE.MeshBasicMaterial({ color: i%2 ? 0x6657a7 : 0x2b718f, transparent:true, opacity:.14 });
+      const r = new THREE.Mesh(geo,mat); r.rotation.x = Math.PI/2; r.position.z = -4-i*.18; ringGroup.add(r);
+    }
+    scene.add(ringGroup);
+
+    // ------- Luxury pen intro -------
+    const pen = new THREE.Group();
+    pen.rotation.set(.18, -.32, -.16);
+    pen.position.set(0,.25,0);
+    scene.add(pen);
+
+    const blackMetal = new THREE.MeshPhysicalMaterial({ color:0x080b12, metalness:.88, roughness:.19, clearcoat:1, clearcoatRoughness:.12 });
+    const gold = new THREE.MeshPhysicalMaterial({ color:0xd0a94d, metalness:1, roughness:.14, clearcoat:.75 });
+    const darkGold = new THREE.MeshPhysicalMaterial({ color:0x8d6d25, metalness:1, roughness:.2 });
+
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.47,.44,6.1,64,1,false), blackMetal);
+    barrel.rotation.z = Math.PI/2; barrel.castShadow=true; barrel.receiveShadow=true; pen.add(barrel);
+    const centerBand = new THREE.Mesh(new THREE.CylinderGeometry(.485,.485,.14,64), gold); centerBand.rotation.z=Math.PI/2; pen.add(centerBand);
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(.18,.44,1.05,64), gold); tip.rotation.z=-Math.PI/2; tip.position.x=-3.55; pen.add(tip);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(.18,.74,48), darkGold); point.rotation.z=Math.PI/2; point.position.x=-4.43; pen.add(point);
+    const capRing = new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.11,64), gold); capRing.rotation.z=Math.PI/2; capRing.position.x=3.05; pen.add(capRing);
+    const capEnd = new THREE.Mesh(new THREE.CylinderGeometry(.40,.44,.45,64), blackMetal); capEnd.rotation.z=Math.PI/2; capEnd.position.x=3.28; pen.add(capEnd);
+    const finial = new THREE.Mesh(new THREE.CylinderGeometry(.24,.37,.16,64), gold); finial.rotation.z=Math.PI/2; finial.position.x=3.62; pen.add(finial);
+    const clip = new THREE.Mesh(new THREE.CapsuleGeometry(.06,1.4,10,18), gold); clip.rotation.z=Math.PI/2; clip.position.set(1.6,.58,0); pen.add(clip);
+
+    // Signature texture placed physically on the pen barrel.
+    const sigCanvas = document.createElement('canvas'); sigCanvas.width=1024; sigCanvas.height=256;
+    const sctx=sigCanvas.getContext('2d'); sctx.clearRect(0,0,1024,256); sctx.fillStyle='#f2d986'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='600 92px Caveat, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128);
+    const sigTex = new THREE.CanvasTexture(sigCanvas); sigTex.colorSpace = THREE.SRGBColorSpace;
+    const sigMat = new THREE.MeshBasicMaterial({ map:sigTex, transparent:true, depthWrite:false, side:THREE.DoubleSide });
+    const sig = new THREE.Mesh(new THREE.PlaneGeometry(3.65,.9), sigMat); sig.position.set(.05,.47,.02); sig.rotation.x=-Math.PI/2; pen.add(sig);
+
+    const penGlow = new THREE.PointLight(0xf4c765, 15, 8, 2); penGlow.position.set(0,1.2,2); pen.add(penGlow);
+
+    // ------- Procedural anatomical brain -------
+    const brain = new THREE.Group();
+    brain.visible = false; brain.scale.setScalar(.01); brain.position.set(0,.0,0); scene.add(brain);
+
+    const lobeData = [
+      { id:'frontal', name:'Frontal Lobe', dest:'Personal Website', url:'https://amirsaeiddehghan.ir/', color:0x39ddff, positions:[[ -1.15,.45,.35],[-.7,.92,.16],[-1.0,-.18,.48],[-.42,.22,.66]], scale:[1.18,1.06,1.02] },
+      { id:'parietal', name:'Parietal Lobe', dest:'Second Personal Website', url:'https://saaeiddev.github.io/Amir-Saeid-Dehghan-Website-2-/', color:0xa968ff, positions:[[.08,1.1,.12],[.72,.94,.06],[.26,.52,.6],[.85,.42,.38]], scale:[1.12,.94,1.0] },
+      { id:'temporal', name:'Temporal Lobe', dest:'Behance · Amir Saeid', url:'https://www.behance.net/amirsaeid', color:0xff5db3, positions:[[.28,-.54,.72],[.95,-.45,.48],[-.36,-.64,.68],[.55,-.94,.22]], scale:[1.14,.75,.96] },
+      { id:'occipital', name:'Occipital Lobe', dest:'YouTube · @saeidworld', url:'https://www.youtube.com/@saeidworld', color:0xffb747, positions:[[1.42,.28,-.02],[1.43,-.24,.08],[1.05,.58,-.25],[1.2,-.58,-.08]], scale:[.9,.86,.92] }
+    ];
+
+    const interactive = [];
+    const temp = new THREE.Vector3();
+
+    function organicGeometry(radius=1, detail=4, seed=1){
+      const g = new THREE.IcosahedronGeometry(radius, detail);
+      const p = g.attributes.position;
+      for(let i=0;i<p.count;i++){
+        temp.fromBufferAttribute(p,i);
+        const x=temp.x, y=temp.y, z=temp.z;
+        const wave = 1 + 0.075*Math.sin((x*5.1+seed)*2.2) + 0.052*Math.sin((y*6.4-seed)*2.6) + 0.04*Math.sin((z*7.3+seed*.7)*2.1);
+        temp.multiplyScalar(wave);
+        p.setXYZ(i,temp.x,temp.y,temp.z);
+      }
+      g.computeVertexNormals();
+      return g;
+    }
+
+    function createLobe(data, hemisphereShift=0){
+      const group = new THREE.Group();
+      group.userData = data;
+      const baseMat = new THREE.MeshPhysicalMaterial({
+        color:data.color, emissive:data.color, emissiveIntensity:.34,
+        roughness:.28, metalness:.04, clearcoat:.65, clearcoatRoughness:.22,
+        transmission:.06, thickness:.5
+      });
+      const glowMat = new THREE.MeshBasicMaterial({ color:data.color, transparent:true, opacity:.08, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.BackSide });
+      const hemi = hemisphereShift;
+      data.positions.forEach((pos,i)=>{
+        const g = organicGeometry(.74 - (i%2)*.08, 4, (i+1)*(data.id.length+hemi*7));
+        const m = new THREE.Mesh(g, baseMat.clone());
+        m.scale.set(data.scale[0]*(i%2?.82:1), data.scale[1]*(i%3?.82:1), data.scale[2]);
+        m.position.set((pos[0]*.88)+hemi, pos[1], pos[2]*(hemi<0?-1:1));
+        m.rotation.set((i*.23)-.2, i*.55, (i*.31)-.2);
+        m.castShadow=true; m.receiveShadow=true; m.userData=data;
+        group.add(m); interactive.push(m);
+        const gm = new THREE.Mesh(g.clone(), glowMat.clone()); gm.position.copy(m.position); gm.rotation.copy(m.rotation); gm.scale.copy(m.scale).multiplyScalar(1.06); group.add(gm);
+      });
+      brain.add(group);
+      return group;
+    }
+
+    // Right hemisphere and mirrored left hemisphere, preserving color-coded lobe regions.
+    lobeData.forEach(d => { createLobe(d,.24); createLobe(d,-.24); });
+
+    // Midline / corpus callosum suggestion
+    const midMat = new THREE.MeshPhysicalMaterial({ color:0xbfd2ef, roughness:.38, transparent:true, opacity:.36, metalness:.02 });
+    const mid = new THREE.Mesh(new THREE.TorusGeometry(.9,.18,22,80,Math.PI*1.45), midMat); mid.rotation.set(Math.PI/2,.2,Math.PI/2); mid.scale.set(1,.7,1); brain.add(mid);
+    // Cerebellum
+    const cereMat = new THREE.MeshPhysicalMaterial({ color:0x7c7ea8, emissive:0x282c5c, emissiveIntensity:.35, roughness:.5, clearcoat:.3 });
+    const cere = new THREE.Mesh(organicGeometry(.75,4,14), cereMat); cere.position.set(1.05,-1.35,-.18); cere.scale.set(1.3,.72,.88); brain.add(cere);
+    for(let i=0;i<7;i++){
+      const ridge = new THREE.Mesh(new THREE.TorusGeometry(.5+i*.025,.018,8,48,Math.PI*1.65), new THREE.MeshBasicMaterial({color:0xb1b4d3,transparent:true,opacity:.28}));
+      ridge.position.copy(cere.position); ridge.position.y += (i-3)*.08; ridge.rotation.set(Math.PI/2,0,.3); ridge.scale.set(1.1,.55,1); brain.add(ridge);
+    }
+    // Brain stem
+    const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x7183a8,roughness:.44,metalness:.05})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
+
+    // Neural orbit particles
+    const neuralGeo = new THREE.BufferGeometry();
+    const n=420, npos=new Float32Array(n*3);
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2, r=3+Math.random()*2.2, y=(Math.random()-.5)*3.7;
+      npos[i*3]=Math.cos(a)*r; npos[i*3+1]=y; npos[i*3+2]=Math.sin(a)*r*.52;
+    }
+    neuralGeo.setAttribute('position',new THREE.BufferAttribute(npos,3));
+    const neuralPoints=new THREE.Points(neuralGeo,new THREE.PointsMaterial({color:0x7bdfff,size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending})); brain.add(neuralPoints);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hover = null, selectedData = null, phase='pen', transition=null, pointerDown={x:0,y:0};
+    const heroCopy=document.querySelector('#heroCopy');
+    const brainUI=document.querySelector('#brainUI');
+    const legend=document.querySelector('#legend');
+    const lobeCard=document.querySelector('#lobeCard');
+    const lobeName=document.querySelector('#lobeName');
+    const lobeDest=document.querySelector('#lobeDest');
+    const backBtn=document.querySelector('#backBtn');
+    const statusText=document.querySelector('#statusText');
+
+    function easeInOut(t){ return t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+    function startTransition(from,to,duration,onDone){ transition={start:performance.now(),duration,from:from.clone(),to:to.clone(),onDone}; }
+
+    function enterBrain(){
+      if(phase!=='pen') return;
+      phase='transition'; heroCopy.style.opacity='0'; heroCopy.style.transform='translate(-50%, 14px)'; statusText.textContent='ENTERING NEURAL MAP…';
+      startTransition(camera.position,new THREE.Vector3(0,.15,4.4),1200,()=>{
+        pen.visible=false; brain.visible=true; brain.scale.setScalar(.01);
+        camera.position.set(0,.15,8.2); controls.target.set(0,.05,0);
+        const begin=performance.now();
+        const grow=()=>{
+          const t=Math.min(1,(performance.now()-begin)/900), e=easeInOut(t); brain.scale.setScalar(.01+(1-.01)*e);
+          if(t<1) requestAnimationFrame(grow); else { phase='brain'; controls.enabled=true; controls.autoRotate=true; brainUI.classList.add('visible'); legend.classList.add('visible'); backBtn.classList.add('show'); statusText.textContent='DRAG · ZOOM · SELECT'; }
+        }; grow();
+      });
+    }
+
+    function exitBrain(){
+      if(phase!=='brain') return;
+      phase='transition'; controls.enabled=false; controls.autoRotate=false; brainUI.classList.remove('visible'); legend.classList.remove('visible'); backBtn.classList.remove('show'); lobeCard.classList.remove('show');
+      const begin=performance.now(); const from=brain.scale.x;
+      const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+.99*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
+    }
+    backBtn.addEventListener('click', exitBrain);
+
+    function normalizedPointer(e){ const rect=canvas.getBoundingClientRect(); mouse.x=((e.clientX-rect.left)/rect.width)*2-1; mouse.y=-((e.clientY-rect.top)/rect.height)*2+1; }
+    canvas.addEventListener('pointerdown',e=>{pointerDown={x:e.clientX,y:e.clientY};});
+    canvas.addEventListener('pointermove',e=>{
+      if(phase!=='brain') return;
+      normalizedPointer(e); raycaster.setFromCamera(mouse,camera); const hit=raycaster.intersectObjects(interactive,false)[0];
+      const next=hit?.object||null;
+      if(hover!==next){
+        if(hover){ hover.material.emissiveIntensity=.34; hover.scale.multiplyScalar(1/1.035); }
+        hover=next;
+        if(hover){ hover.material.emissiveIntensity=1.15; hover.scale.multiplyScalar(1.035); const d=hover.userData; selectedData=d; lobeName.textContent=d.name; lobeDest.textContent=d.dest; lobeCard.classList.add('show'); canvas.style.cursor='pointer'; controls.autoRotate=false; }
+        else { lobeCard.classList.remove('show'); canvas.style.cursor='grab'; controls.autoRotate=true; selectedData=null; }
+      }
+    });
+    canvas.addEventListener('pointerup',e=>{
+      const moved=Math.hypot(e.clientX-pointerDown.x,e.clientY-pointerDown.y);
+      if(moved>8) return;
+      if(phase==='pen'){ enterBrain(); return; }
+      if(phase==='brain'){
+        normalizedPointer(e); raycaster.setFromCamera(mouse,camera); const hit=raycaster.intersectObjects(interactive,false)[0];
+        if(hit){ const d=hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }
+      }
+    });
+    lobeCard.addEventListener?.('click',()=>{ if(selectedData) window.open(selectedData.url,'_blank','noopener,noreferrer'); });
+
+    window.addEventListener('resize',()=>{
+      camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    });
+
+    const clock=new THREE.Clock();
+    function animate(now){
+      requestAnimationFrame(animate);
+      const t=clock.getElapsedTime();
+      if(transition){
+        const p=Math.min(1,(now-transition.start)/transition.duration), e=easeInOut(p);
+        camera.position.lerpVectors(transition.from,transition.to,e);
+        if(p>=1){ const done=transition.onDone; transition=null; done?.(); }
+      }
+      if(phase==='pen'){
+        pen.rotation.y = -.32 + Math.sin(t*.55)*.055;
+        pen.rotation.x = .18 + Math.sin(t*.7)*.025;
+        pen.position.y = .25 + Math.sin(t*.9)*.12;
+      }
+      if(brain.visible){
+        neuralPoints.rotation.y += .0008;
+        brain.rotation.z = Math.sin(t*.45)*.016;
+      }
+      stars.rotation.y += .00008;
+      ringGroup.rotation.z += .0007;
+      controls.update();
+      renderer.render(scene,camera);
+    }
+    animate(performance.now());
+
+    document.fonts.ready.then(()=>{
+      // Refresh signature after handwriting font is ready.
+      sctx.clearRect(0,0,1024,256); sctx.fillStyle='#f2d986'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='600 92px Caveat, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128); sigTex.needsUpdate=true;
+    });
+
+    setTimeout(()=>document.querySelector('#loading').classList.add('done'), 700);
+  </script>
+</body>
+</html>
