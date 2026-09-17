@@ -16,7 +16,7 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
     // Anatomical asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0.
     // Source: https://github.com/itayinbarr/brainproject
     const brain = new THREE.Group();
-    brain.visible = false; brain.scale.setScalar(.01); brain.position.set(0,.0,0); scene.add(brain);
+    brain.visible = false; brain.scale.setScalar(.01); brain.position.set(0,-.18,0); scene.add(brain);
 
     const lobeData = [
       { id:'frontal', name:'Frontal Lobe', dest:'Personal Website', url:'https://amirsaeiddehghan.ir/', color:0x39ddff },
@@ -48,9 +48,11 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
       const box = new THREE.Box3().setFromObject(anatomicalModel);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      anatomicalModel.position.sub(center);
       const fit = 4.25 / Math.max(size.x,size.y,size.z);
       anatomicalModel.scale.setScalar(fit);
+      // Important: root position is not multiplied by its own scale. Scale the measured
+      // source-space center explicitly so the visible GLB center lands exactly at (0,0,0).
+      anatomicalModel.position.copy(center).multiplyScalar(-fit);
       anatomicalModel.rotation.set(-0.08, -0.34, 0.02);
 
       anatomicalModel.traverse(obj => {
@@ -108,4 +110,4 @@ html = html.replace(
 html = html.replace('</body>', '<!-- Anatomical brain asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0. https://github.com/itayinbarr/brainproject -->\n</body>');
 
 fs.writeFileSync(path, html);
-console.log('Applied anatomical brain + rotating pen production transform.');
+console.log('Applied anatomical brain + rotating pen production transform with corrected centering.');
