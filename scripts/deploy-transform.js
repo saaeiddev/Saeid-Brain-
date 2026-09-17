@@ -50,8 +50,6 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
       const center = box.getCenter(new THREE.Vector3());
       const fit = 4.25 / Math.max(size.x,size.y,size.z);
       anatomicalModel.scale.setScalar(fit);
-      // Important: root position is not multiplied by its own scale. Scale the measured
-      // source-space center explicitly so the visible GLB center lands exactly at (0,0,0).
       anatomicalModel.position.copy(center).multiplyScalar(-fit);
       anatomicalModel.rotation.set(-0.08, -0.34, 0.02);
 
@@ -69,21 +67,11 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
           const base = new THREE.Color(lobe.color);
           const old = obj.material;
           obj.material = new THREE.MeshPhysicalMaterial({
-            color: base.clone().lerp(new THREE.Color(0xd8a8a8), .62),
-            map: old?.map || null,
-            normalMap: old?.normalMap || null,
-            roughness: .48,
-            metalness: 0,
-            clearcoat: .22,
-            clearcoatRoughness: .45,
-            emissive: base,
-            emissiveIntensity: .12,
-            transparent: false
+            color: base.clone().lerp(new THREE.Color(0xd8a8a8), .62), map: old?.map || null, normalMap: old?.normalMap || null,
+            roughness: .48, metalness: 0, clearcoat: .22, clearcoatRoughness: .45, emissive: base, emissiveIntensity: .12, transparent: false
           });
         } else if(obj.material){
-          const old = obj.material;
-          obj.material = old.clone();
-          obj.material.roughness = Math.max(.4, obj.material.roughness ?? .5);
+          const old = obj.material; obj.material = old.clone(); obj.material.roughness = Math.max(.4, obj.material.roughness ?? .5);
         }
       });
       brain.add(anatomicalModel);
@@ -94,8 +82,6 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
 
 `;
 html = html.slice(0,start) + replacement + html.slice(end);
-
-// The real anatomical model is already detailed; remove the old procedural cerebellum animation dependency.
 html = html.replace("        if(hover){ hover.material.emissiveIntensity=.34; hover.scale.multiplyScalar(1/1.035); }", "        if(hover){ hover.material.emissiveIntensity=.12; hover.scale.multiplyScalar(1/1.012); }");
 html = html.replace("        if(hover){ hover.material.emissiveIntensity=1.15; hover.scale.multiplyScalar(1.035); const d=hover.userData; selectedData=d;", "        if(hover){ hover.material.emissiveIntensity=.72; hover.scale.multiplyScalar(1.012); const d=hover.userData.portfolioLobe || hover.userData; selectedData=d;");
 html = html.replace("if(hit){ const d=hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }", "if(hit){ const d=hit.object.userData.portfolioLobe || hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }");
@@ -106,8 +92,14 @@ html = html.replace(
   "pen.rotation.y = -.32 + Math.sin(t*.38)*.045;\n        pen.rotation.x = .18 + (t * .32) % (Math.PI * 2);"
 );
 
-// Keep credits available in source without adding UI clutter.
-html = html.replace('</body>', '<!-- Anatomical brain asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0. https://github.com/itayinbarr/brainproject -->\n</body>');
+// Keep the neural particle orbit perfectly level around the brain instead of diagonally tilted.
+html = html.replace(
+  "const neuralPoints=new THREE.Points(neuralGeo,new THREE.PointsMaterial({color:0x7bdfff,size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending})); brain.add(neuralPoints);",
+  "const neuralPoints=new THREE.Points(neuralGeo,new THREE.PointsMaterial({color:0x7bdfff,size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending})); neuralPoints.rotation.set(0,0,0); brain.add(neuralPoints);"
+);
+// Remove the brain group's visual roll so the orbit remains horizontal in screen/world space.
+html = html.replace("brain.rotation.z = Math.sin(t*.45)*.016;", "brain.rotation.z = 0;");
 
+html = html.replace('</body>', '<!-- Anatomical brain asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0. https://github.com/itayinbarr/brainproject -->\n</body>');
 fs.writeFileSync(path, html);
-console.log('Applied anatomical brain + rotating pen production transform with corrected centering.');
+console.log('Applied anatomical brain, corrected centering, rotating pen, and level horizontal neural orbit.');
