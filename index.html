@@ -269,12 +269,14 @@
     function createLobe(data, hemisphereShift=0){
       const group = new THREE.Group();
       group.userData = data;
+      const materialColor = new THREE.Color(data.color).multiplyScalar(.72);
+      const emissiveColor = new THREE.Color(data.color).multiplyScalar(.42);
       const baseMat = new THREE.MeshPhysicalMaterial({
-        color:data.color, emissive:data.color, emissiveIntensity:.34,
-        roughness:.28, metalness:.04, clearcoat:.65, clearcoatRoughness:.22,
-        transmission:.06, thickness:.5
+        color:materialColor, emissive:emissiveColor, emissiveIntensity:.18,
+        roughness:.42, metalness:.02, clearcoat:.3, clearcoatRoughness:.4,
+        transmission:.015, thickness:.3
       });
-      const glowMat = new THREE.MeshBasicMaterial({ color:data.color, transparent:true, opacity:.08, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.BackSide });
+      const glowMat = new THREE.MeshBasicMaterial({ color:data.color, transparent:true, opacity:.045, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.BackSide });
       const hemi = hemisphereShift;
       data.positions.forEach((pos,i)=>{
         const g = organicGeometry(.74 - (i%2)*.08, 4, (i+1)*(data.id.length+hemi*7));
@@ -294,17 +296,17 @@
     lobeData.forEach(d => { createLobe(d,.24); createLobe(d,-.24); });
 
     // Midline / corpus callosum suggestion
-    const midMat = new THREE.MeshPhysicalMaterial({ color:0xbfd2ef, roughness:.38, transparent:true, opacity:.36, metalness:.02 });
+    const midMat = new THREE.MeshPhysicalMaterial({ color:0x8296b8, roughness:.5, transparent:true, opacity:.3, metalness:.01, clearcoat:.12 });
     const mid = new THREE.Mesh(new THREE.TorusGeometry(.9,.18,22,80,Math.PI*1.45), midMat); mid.rotation.set(Math.PI/2,.2,Math.PI/2); mid.scale.set(1,.7,1); brain.add(mid);
     // Cerebellum
-    const cereMat = new THREE.MeshPhysicalMaterial({ color:0x7c7ea8, emissive:0x282c5c, emissiveIntensity:.35, roughness:.5, clearcoat:.3 });
+    const cereMat = new THREE.MeshPhysicalMaterial({ color:0x70739a, emissive:0x20254c, emissiveIntensity:.22, roughness:.56, clearcoat:.18 });
     const cere = new THREE.Mesh(organicGeometry(.75,4,14), cereMat); cere.position.set(1.05,-1.35,-.18); cere.scale.set(1.3,.72,.88); brain.add(cere);
     for(let i=0;i<7;i++){
-      const ridge = new THREE.Mesh(new THREE.TorusGeometry(.5+i*.025,.018,8,48,Math.PI*1.65), new THREE.MeshBasicMaterial({color:0xb1b4d3,transparent:true,opacity:.28}));
+      const ridge = new THREE.Mesh(new THREE.TorusGeometry(.5+i*.025,.018,8,48,Math.PI*1.65), new THREE.MeshBasicMaterial({color:0x838bab,transparent:true,opacity:.22}));
       ridge.position.copy(cere.position); ridge.position.y += (i-3)*.08; ridge.rotation.set(Math.PI/2,0,.3); ridge.scale.set(1.1,.55,1); brain.add(ridge);
     }
     // Brain stem
-    const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x7183a8,roughness:.44,metalness:.05})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
+    const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x667797,roughness:.5,metalness:.03})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
 
     // Neural orbit particles
     const neuralGeo = new THREE.BufferGeometry();
@@ -360,9 +362,9 @@
       normalizedPointer(e); raycaster.setFromCamera(mouse,camera); const hit=raycaster.intersectObjects(interactive,false)[0];
       const next=hit?.object||null;
       if(hover!==next){
-        if(hover){ hover.material.emissiveIntensity=.34; hover.scale.multiplyScalar(1/1.035); }
+        if(hover){ hover.material.emissiveIntensity=.18; hover.scale.multiplyScalar(1/1.035); }
         hover=next;
-        if(hover){ hover.material.emissiveIntensity=1.15; hover.scale.multiplyScalar(1.035); const d=hover.userData; selectedData=d; lobeName.textContent=d.name; lobeDest.textContent=d.dest; lobeCard.classList.add('show'); canvas.style.cursor='pointer'; controls.autoRotate=false; }
+        if(hover){ hover.material.emissiveIntensity=.62; hover.scale.multiplyScalar(1.035); const d=hover.userData; selectedData=d; lobeName.textContent=d.name; lobeDest.textContent=d.dest; lobeCard.classList.add('show'); canvas.style.cursor='pointer'; controls.autoRotate=false; }
         else { lobeCard.classList.remove('show'); canvas.style.cursor='grab'; controls.autoRotate=true; selectedData=null; }
       }
     });
