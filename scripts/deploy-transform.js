@@ -9,7 +9,8 @@ html = html.replace(
 );
 
 const start = html.indexOf('    // ------- Procedural anatomical brain -------');
-const end = html.indexOf('    // Neural orbit particles');
+let end = html.indexOf('    // Flat neural orbit: perfectly level around the brain, never tilted.');
+if (end < 0) end = html.indexOf('    // Neural orbit particles');
 if (start < 0 || end < 0 || end <= start) throw new Error('Brain block markers not found');
 
 const replacement = `    // ------- High-detail anatomical brain asset -------
@@ -59,6 +60,7 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
         const lobe = lobeForObject(obj);
         if(lobe){
           obj.userData.portfolioLobe = lobe;
+          obj.userData.id = lobe.id;
           obj.userData.name = lobe.name;
           obj.userData.dest = lobe.dest;
           obj.userData.url = lobe.url;
@@ -86,18 +88,8 @@ html = html.replace("        if(hover){ hover.material.emissiveIntensity=.34; ho
 html = html.replace("        if(hover){ hover.material.emissiveIntensity=1.15; hover.scale.multiplyScalar(1.035); const d=hover.userData; selectedData=d;", "        if(hover){ hover.material.emissiveIntensity=.72; hover.scale.multiplyScalar(1.012); const d=hover.userData.portfolioLobe || hover.userData; selectedData=d;");
 html = html.replace("if(hit){ const d=hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }", "if(hit){ const d=hit.object.userData.portfolioLobe || hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }");
 
-// Slow 360-degree barrel roll so the handwritten name naturally rotates into view.
-html = html.replace(
-  "pen.rotation.y = -.32 + Math.sin(t*.55)*.055;\n        pen.rotation.x = .18 + Math.sin(t*.7)*.025;",
-  "pen.rotation.y = -.32 + Math.sin(t*.38)*.045;\n        pen.rotation.x = .18 + (t * .32) % (Math.PI * 2);"
-);
-
-// Keep the neural particle orbit perfectly level around the brain instead of diagonally tilted.
-html = html.replace(
-  "const neuralPoints=new THREE.Points(neuralGeo,new THREE.PointsMaterial({color:0x7bdfff,size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending})); brain.add(neuralPoints);",
-  "const neuralPoints=new THREE.Points(neuralGeo,new THREE.PointsMaterial({color:0x7bdfff,size:.035,transparent:true,opacity:.6,blending:THREE.AdditiveBlending})); neuralPoints.rotation.set(0,0,0); brain.add(neuralPoints);"
-);
-// Remove the brain group's visual roll so the orbit remains horizontal in screen/world space.
+// The source now owns the refined pen animation and the horizontal orbit.
+ // Remove only the brain group's visual roll so the orbit stays perfectly level in screen/world space.
 html = html.replace("brain.rotation.z = Math.sin(t*.45)*.016;", "brain.rotation.z = 0;");
 
 html = html.replace('</body>', '<!-- Anatomical brain asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0. https://github.com/itayinbarr/brainproject -->\n</body>');
