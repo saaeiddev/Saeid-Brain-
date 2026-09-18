@@ -81,6 +81,25 @@
     .legend-item { display:flex; align-items:center; gap:8px; margin:10px 0; color:#9ba8c3; font-size:10px; }
     .swatch { width:7px; height:7px; border-radius:50%; box-shadow:0 0 12px currentColor; }
 
+    #penInfo {
+      position:fixed; left:50%; top:50%; z-index:24;
+      transform:translate(-50%,-50%) translateY(12px) scale(.96);
+      padding:14px 20px; border-radius:18px;
+      border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.055));
+      box-shadow:0 20px 70px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.13);
+      backdrop-filter:blur(24px) saturate(150%);
+      -webkit-backdrop-filter:blur(24px) saturate(150%);
+      color:#f7f9ff; font-size:14px; font-weight:600; letter-spacing:.01em;
+      opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .22s ease, transform .22s ease, visibility .22s ease;
+      white-space:nowrap;
+    }
+    #penInfo.show {
+      opacity:1; visibility:visible;
+      transform:translate(-50%,-50%) translateY(0) scale(1);
+    }
+
     .loading { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:#050712; transition:opacity .7s ease, visibility .7s ease; }
     .loading.done { opacity:0; visibility:hidden; }
     .loader-inner { text-align:center; }
@@ -99,6 +118,7 @@
       .hero-copy { bottom:max(18px, env(safe-area-inset-bottom)); width:calc(100vw - 28px); }
       .hero-copy p { padding:0; font-size:12px; }
       .hint { margin-top:12px; }
+      #penInfo { max-width:calc(100vw - 28px); white-space:normal; text-align:center; font-size:13px; }
       #lobeCard { width:calc(100vw - 28px); bottom:max(12px, env(safe-area-inset-bottom)); }
     }
   </style>
@@ -118,6 +138,7 @@
   </header>
 
   <button id="backBtn" aria-label="Back to pen">← Back to pen</button>
+  <div id="penInfo" role="status" aria-live="polite"></div>
 
   <section class="hero-copy" id="heroCopy">
     <div class="eyebrow">Amir Saeid Dehghan</div>
@@ -257,6 +278,7 @@
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.445,.455,5.68,96,1,false), blackLacquer);
     barrel.rotation.z = Math.PI/2;
     barrel.castShadow=true; barrel.receiveShadow=true;
+    barrel.userData.penLabel = 'Multimedia Art';
     pen.add(barrel);
 
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(.285,.415,1.12,96,1,false), gripMat);
@@ -289,26 +311,31 @@
     const finialRing = new THREE.Mesh(new THREE.CylinderGeometry(.375,.375,.08,96), gold);
     finialRing.rotation.z = Math.PI/2;
     finialRing.position.x = 3.50;
+    finialRing.userData.penLabel = 'Filmmaking and Animation';
     pen.add(finialRing);
 
     const finial = new THREE.Mesh(new THREE.SphereGeometry(.205,48,48), gold);
     finial.scale.x = .72;
     finial.position.x = 3.68;
+    finial.userData.penLabel = 'Filmmaking and Animation';
     pen.add(finial);
 
     const nibBase = new THREE.Mesh(new THREE.CylinderGeometry(.165,.245,.34,64), steel);
     nibBase.rotation.z = -Math.PI/2;
     nibBase.position.x = -3.78;
+    nibBase.userData.penLabel = '3D Web Design';
     pen.add(nibBase);
 
     const nib = new THREE.Mesh(new THREE.ConeGeometry(.165,.82,64), steel);
     nib.rotation.z = Math.PI/2;
     nib.position.x = -4.34;
     nib.castShadow=true;
+    nib.userData.penLabel = '3D Web Design';
     pen.add(nib);
 
     const nibTip = new THREE.Mesh(new THREE.SphereGeometry(.052,28,28), gold);
     nibTip.position.x = -4.77;
+    nibTip.userData.penLabel = '3D Web Design';
     pen.add(nibTip);
 
     // Curved spring clip, more natural than a straight capsule.
@@ -338,6 +365,7 @@
     // Keep the signature tangent to the front of the barrel so it reads clearly from the camera.
     sig.position.set(-.03,.015,.458);
     sig.renderOrder = 4;
+    sig.userData.penLabel = 'Multimedia Art';
     pen.add(sig);
 
     const penGlow = new THREE.PointLight(0xe8bb5d, 8, 7, 2);
@@ -448,6 +476,8 @@
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let hoverLobeId = null, selectedData = null, phase='pen', transition=null, pointerDown={x:0,y:0};
+    let penDragging=false, penDragMoved=false, penRotationX=.12, penRotationY=-.10;
+    let penInfoTimer=null;
 
     function setLobeHighlight(lobeId, active){
       interactive.forEach(mesh=>{
@@ -464,13 +494,21 @@
     const lobeDest=document.querySelector('#lobeDest');
     const backBtn=document.querySelector('#backBtn');
     const statusText=document.querySelector('#statusText');
+    const penInfo=document.querySelector('#penInfo');
+
+    function showPenInfo(label){
+      clearTimeout(penInfoTimer);
+      penInfo.textContent=label;
+      penInfo.classList.add('show');
+      penInfoTimer=setTimeout(()=>penInfo.classList.remove('show'),2200);
+    }
 
     function easeInOut(t){ return t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
     function startTransition(from,to,duration,onDone){ transition={start:performance.now(),duration,from:from.clone(),to:to.clone(),onDone}; }
 
     function enterBrain(){
       if(phase!=='pen') return;
-      phase='transition'; heroCopy.style.opacity='0'; heroCopy.style.transform='translate(-50%, 14px)'; statusText.textContent='ENTERING NEURAL MAP…';
+      phase='transition'; penInfo.classList.remove('show'); heroCopy.style.opacity='0'; heroCopy.style.transform='translate(-50%, 14px)'; statusText.textContent='ENTERING NEURAL MAP…';
       startTransition(camera.position,new THREE.Vector3(0,.15,4.4),1200,()=>{
         pen.visible=false; brain.visible=true; brain.scale.setScalar(.01);
         camera.position.set(0,.15,8.2); controls.target.set(0,.05,0);
@@ -492,8 +530,26 @@
     backBtn.addEventListener('click', exitBrain);
 
     function normalizedPointer(e){ const rect=canvas.getBoundingClientRect(); mouse.x=((e.clientX-rect.left)/rect.width)*2-1; mouse.y=-((e.clientY-rect.top)/rect.height)*2+1; }
-    canvas.addEventListener('pointerdown',e=>{pointerDown={x:e.clientX,y:e.clientY};});
+    canvas.addEventListener('pointerdown',e=>{
+      pointerDown={x:e.clientX,y:e.clientY};
+      if(phase==='pen'){
+        penDragging=true;
+        penDragMoved=false;
+        canvas.setPointerCapture?.(e.pointerId);
+        canvas.style.cursor='grabbing';
+      }
+    });
     canvas.addEventListener('pointermove',e=>{
+      if(phase==='pen' && penDragging){
+        const dx=e.clientX-pointerDown.x;
+        const dy=e.clientY-pointerDown.y;
+        if(Math.hypot(dx,dy)>4) penDragMoved=true;
+        penRotationY += dx*.007;
+        penRotationX += dy*.005;
+        penRotationX = THREE.MathUtils.clamp(penRotationX,-1.15,1.15);
+        pointerDown={x:e.clientX,y:e.clientY};
+        return;
+      }
       if(phase!=='brain') return;
       normalizedPointer(e);
       raycaster.setFromCamera(mouse,camera);
@@ -522,13 +578,36 @@
       }
     });
     canvas.addEventListener('pointerup',e=>{
+      if(phase==='pen'){
+        penDragging=false;
+        canvas.releasePointerCapture?.(e.pointerId);
+        canvas.style.cursor='grab';
+        if(penDragMoved) return;
+
+        normalizedPointer(e);
+        raycaster.setFromCamera(mouse,camera);
+        const penHit=raycaster.intersectObjects(pen.children,true)[0];
+        const label=penHit?.object?.userData?.penLabel;
+        if(label){
+          showPenInfo(label);
+          return;
+        }
+
+        // Preserve the existing enter behavior on the remaining pen parts.
+        enterBrain();
+        return;
+      }
+
       const moved=Math.hypot(e.clientX-pointerDown.x,e.clientY-pointerDown.y);
       if(moved>8) return;
-      if(phase==='pen'){ enterBrain(); return; }
       if(phase==='brain'){
         normalizedPointer(e); raycaster.setFromCamera(mouse,camera); const hit=raycaster.intersectObjects(interactive,false)[0];
         if(hit){ const d=hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }
       }
+    });
+    canvas.addEventListener('pointercancel',()=>{
+      penDragging=false;
+      if(phase==='pen') canvas.style.cursor='grab';
     });
     lobeCard.addEventListener?.('click',()=>{ if(selectedData) window.open(selectedData.url,'_blank','noopener,noreferrer'); });
 
@@ -552,8 +631,8 @@
         if(p>=1){ const done=transition.onDone; transition=null; done?.(); }
       }
       if(phase==='pen'){
-        pen.rotation.y = -.10 + Math.sin(t*.48)*.12;
-        pen.rotation.x = .12 + Math.sin(t*.62)*.025;
+        pen.rotation.y = penRotationY + Math.sin(t*.48)*.035;
+        pen.rotation.x = penRotationX + Math.sin(t*.62)*.018;
         pen.rotation.z = -.08 + Math.sin(t*.36)*.018;
         pen.position.y = .22 + Math.sin(t*.82)*.10;
       }
