@@ -8,7 +8,7 @@
   <meta name="description" content="Saeid Brain — an interactive 3D portfolio experience by Amir Saeid Dehghan." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Allura&family=Caveat:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
@@ -218,7 +218,7 @@
     // Refined, physically based pen built from separate real-world parts:
     // lacquered barrel, tapered grip, metal nib, center band, cap, finial and curved clip.
     const pen = new THREE.Group();
-    pen.rotation.set(.15, -.27, -.10);
+    pen.rotation.set(.12, -.10, -.08);
     pen.position.set(0,.22,0);
     scene.add(pen);
 
@@ -320,12 +320,13 @@
 
     // Signature texture placed physically on the lacquered barrel.
     const sigCanvas = document.createElement('canvas'); sigCanvas.width=1024; sigCanvas.height=256;
-    const sctx=sigCanvas.getContext('2d'); sctx.clearRect(0,0,1024,256); sctx.fillStyle='#e7c86f'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='600 88px Caveat, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128);
+    const sctx=sigCanvas.getContext('2d'); sctx.clearRect(0,0,1024,256); sctx.fillStyle='#e7c86f'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='400 112px Allura, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128);
     const sigTex = new THREE.CanvasTexture(sigCanvas); sigTex.colorSpace = THREE.SRGBColorSpace;
     const sigMat = new THREE.MeshBasicMaterial({ map:sigTex, transparent:true, depthWrite:false, side:THREE.DoubleSide, toneMapped:false });
-    const sig = new THREE.Mesh(new THREE.PlaneGeometry(3.58,.76), sigMat);
-    sig.position.set(-.03,.448,.022);
-    sig.rotation.x=-Math.PI/2;
+    const sig = new THREE.Mesh(new THREE.PlaneGeometry(3.72,.84), sigMat);
+    // Keep the signature tangent to the front of the barrel so it reads clearly from the camera.
+    sig.position.set(-.03,.015,.458);
+    sig.renderOrder = 4;
     pen.add(sig);
 
     const penGlow = new THREE.PointLight(0xe8bb5d, 8, 7, 2);
@@ -534,9 +535,9 @@
         if(p>=1){ const done=transition.onDone; transition=null; done?.(); }
       }
       if(phase==='pen'){
-        pen.rotation.y = -.27 + Math.sin(t*.48)*.11;
-        pen.rotation.x = .15 + Math.sin(t*.62)*.025;
-        pen.rotation.z = -.10 + Math.sin(t*.36)*.018;
+        pen.rotation.y = -.10 + Math.sin(t*.48)*.12;
+        pen.rotation.x = .12 + Math.sin(t*.62)*.025;
+        pen.rotation.z = -.08 + Math.sin(t*.36)*.018;
         pen.position.y = .22 + Math.sin(t*.82)*.10;
       }
       if(brain.visible){
@@ -552,7 +553,7 @@
 
     document.fonts.ready.then(()=>{
       // Refresh signature after handwriting font is ready.
-      sctx.clearRect(0,0,1024,256); sctx.fillStyle='#f2d986'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='600 92px Caveat, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128); sigTex.needsUpdate=true;
+      sctx.clearRect(0,0,1024,256); sctx.fillStyle='#f2d986'; sctx.textAlign='center'; sctx.textBaseline='middle'; sctx.font='400 116px Allura, cursive'; sctx.fillText('Amir Saeid Dehghan',512,128); sigTex.needsUpdate=true;
     });
 
     setTimeout(()=>document.querySelector('#loading').classList.add('done'), 700);
