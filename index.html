@@ -91,12 +91,15 @@
     @media (max-width: 720px) {
       header { left:14px; right:14px; top:max(12px, env(safe-area-inset-top)); }
       .status { display:none; }
-      .brain-title { top:max(70px, calc(env(safe-area-inset-top) + 58px)); }
+      .brain-title { top:max(62px, calc(env(safe-area-inset-top) + 50px)); width:calc(100vw - 28px); }
+      .brain-title h2 { font-size:clamp(21px,7vw,30px); }
+      .brain-title p { font-size:11px; }
       .legend { display:none; }
-      #backBtn { left:14px; top:max(56px, calc(env(safe-area-inset-top) + 44px)); }
-      .hero-copy { bottom:max(24px, env(safe-area-inset-bottom)); }
-      .hero-copy p { padding:0 14px; }
-      #lobeCard { width:calc(100vw - 28px); bottom:max(16px, env(safe-area-inset-bottom)); }
+      #backBtn { left:14px; top:max(52px, calc(env(safe-area-inset-top) + 40px)); }
+      .hero-copy { bottom:max(18px, env(safe-area-inset-bottom)); width:calc(100vw - 28px); }
+      .hero-copy p { padding:0; font-size:12px; }
+      .hint { margin-top:12px; }
+      #lobeCard { width:calc(100vw - 28px); bottom:max(12px, env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
@@ -175,6 +178,13 @@
     const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, .1, 120);
     camera.position.set(0, .2, 10.7);
 
+    // Preserve the desktop composition while fitting wide 3D subjects inside narrow mobile screens.
+    function responsiveSceneScale(){
+      const aspect = innerWidth / innerHeight;
+      return Math.min(1, Math.max(.34, aspect / 1.32));
+    }
+    let sceneFitScale = responsiveSceneScale();
+
     const controls = new OrbitControls(camera, canvas);
     controls.enabled = false;
     controls.enableDamping = true;
@@ -220,6 +230,7 @@
     const pen = new THREE.Group();
     pen.rotation.set(.12, -.10, -.08);
     pen.position.set(0,.22,0);
+    pen.scale.setScalar(sceneFitScale);
     scene.add(pen);
 
     const blackLacquer = new THREE.MeshPhysicalMaterial({
@@ -465,7 +476,7 @@
         camera.position.set(0,.15,8.2); controls.target.set(0,.05,0);
         const begin=performance.now();
         const grow=()=>{
-          const t=Math.min(1,(performance.now()-begin)/900), e=easeInOut(t); brain.scale.setScalar(.01+(1-.01)*e);
+          const t=Math.min(1,(performance.now()-begin)/900), e=easeInOut(t); brain.scale.setScalar(.01+(sceneFitScale-.01)*e);
           if(t<1) requestAnimationFrame(grow); else { phase='brain'; controls.enabled=true; controls.autoRotate=true; brainUI.classList.add('visible'); legend.classList.add('visible'); backBtn.classList.add('show'); statusText.textContent='DRAG · ZOOM · SELECT'; }
         }; grow();
       });
@@ -476,7 +487,7 @@
       phase='transition'; controls.enabled=false; controls.autoRotate=false; brainUI.classList.remove('visible'); legend.classList.remove('visible'); backBtn.classList.remove('show'); lobeCard.classList.remove('show');
       if(hoverLobeId){ setLobeHighlight(hoverLobeId,false); hoverLobeId=null; selectedData=null; }
       const begin=performance.now(); const from=brain.scale.x;
-      const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+.99*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
+      const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+(sceneFitScale-.01)*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
     }
     backBtn.addEventListener('click', exitBrain);
 
@@ -522,7 +533,13 @@
     lobeCard.addEventListener?.('click',()=>{ if(selectedData) window.open(selectedData.url,'_blank','noopener,noreferrer'); });
 
     window.addEventListener('resize',()=>{
-      camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+      camera.aspect=innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth,innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+      sceneFitScale = responsiveSceneScale();
+      if(phase==='pen') pen.scale.setScalar(sceneFitScale);
+      if(phase==='brain') brain.scale.setScalar(sceneFitScale);
     });
 
     const clock=new THREE.Clock();
