@@ -82,59 +82,6 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
       document.querySelector('.brain-title p').textContent = 'Anatomical model could not load. Please refresh.';
     });
 
-    // ------- Original central spinal cord only -------
-    // Keep the anatomical brain as the hero object. No body, arms, hands,
-    // peripheral branches, silhouette, skin mesh, torso or humanoid model.
-    const spinalCord = new THREE.Group();
-    spinalCord.name = 'spinalCord';
-    brain.add(spinalCord);
-
-    const spinalCoreMaterial = new THREE.MeshBasicMaterial({
-      color:0xedffff,
-      transparent:true,
-      opacity:1,
-      depthWrite:false,
-      blending:THREE.AdditiveBlending
-    });
-
-    const spinalGlowMaterial = new THREE.MeshBasicMaterial({
-      color:0x27d7ff,
-      transparent:true,
-      opacity:.24,
-      depthWrite:false,
-      blending:THREE.AdditiveBlending
-    });
-
-    function addSpinalCord(points,radius=.050){
-      const curve = new THREE.CatmullRomCurve3(points,false,'catmullrom',.45);
-
-      const glow = new THREE.Mesh(
-        new THREE.TubeGeometry(curve,96,radius*2.8,8,false),
-        spinalGlowMaterial
-      );
-      glow.renderOrder = 6;
-      glow.raycast = () => {};
-      spinalCord.add(glow);
-
-      const core = new THREE.Mesh(
-        new THREE.TubeGeometry(curve,96,radius,10,false),
-        spinalCoreMaterial
-      );
-      core.renderOrder = 7;
-      core.raycast = () => {};
-      spinalCord.add(core);
-    }
-
-    // Central continuation directly below the brain stem — and nothing else.
-    addSpinalCord([
-      new THREE.Vector3(.10,-1.16,.24),
-      new THREE.Vector3(.06,-1.38,.27),
-      new THREE.Vector3(.03,-1.62,.29),
-      new THREE.Vector3(.01,-1.88,.31),
-      new THREE.Vector3(0,-2.15,.32),
-      new THREE.Vector3(0,-2.43,.33),
-      new THREE.Vector3(0,-2.72,.34)
-    ]);
 
 
 `;
@@ -149,4 +96,4 @@ html = html.replace("brain.rotation.z = Math.sin(t*.45)*.016;", "brain.rotation.
 
 html = html.replace('</body>', '<!-- Anatomical brain asset: BrainProject / Z-Anatomy + BodyParts3D, CC BY-SA 4.0. https://github.com/itayinbarr/brainproject -->\n</body>');
 fs.writeFileSync(path, html);
-console.log('Applied anatomical brain with original central spinal cord only, rotating pen, and level horizontal neural orbit.');
+console.log('Applied anatomical brain, rotating pen, and level horizontal neural orbit.');
