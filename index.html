@@ -787,9 +787,15 @@
 
       // Lazy-load the Porsche-only dependency so a CDN/model issue can never
       // block the pen + brain experience from booting.
-      carLoadPromise = import('three/addons/loaders/GLTFLoader.js').then(({GLTFLoader}) =>
+      carLoadPromise = Promise.all([
+        import('three/addons/loaders/GLTFLoader.js'),
+        import('three/addons/loaders/DRACOLoader.js')
+      ]).then(([{GLTFLoader},{DRACOLoader}]) =>
         new Promise((resolve,reject)=>{
           const loader = new GLTFLoader();
+          const carDraco = new DRACOLoader();
+          carDraco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/');
+          loader.setDRACOLoader(carDraco);
           loader.load(
             porscheModelUrl,
             gltf=>{
@@ -966,7 +972,7 @@
         brainUI.classList.add('visible');
         legend.classList.add('visible');
         carSubtitle.textContent='Drag to orbit · pinch or scroll to zoom.';
-        statusText.textContent='DRAG · ZOOM · SELECT';
+        statusText.textContent='PORSCHE LOAD FAILED · TAP AGAIN';
         return;
       }
 
@@ -1136,14 +1142,22 @@
         raycaster.setFromCamera(mouse,camera);
         const hit=raycaster.intersectObjects(interactive,false)[0];
         if(hit){
-          const d=hit.object.userData;
+          const d=hit.object.userData.portfolioLobe || hit.object.userData;
           window.open(d.url,'_blank','noopener,noreferrer');
           return;
         }
-        // A clean click on empty brain-scene space advances to the Porsche scene.
-        enterCar();
       }
     });
+    // Reliable brain -> Porsche navigation. OrbitControls can consume pointer gestures,
+    // so use the browser's click event for a clean tap/click on empty canvas space.
+    canvas.addEventListener('click',e=>{
+      if(phase!=='brain') return;
+      normalizedPointer(e);
+      raycaster.setFromCamera(mouse,camera);
+      const hit=raycaster.intersectObjects(interactive,false)[0];
+      if(!hit) enterCar();
+    });
+
     canvas.addEventListener('pointercancel',()=>{
       penDragging=false;
       if(phase==='pen') canvas.style.cursor='grab';
