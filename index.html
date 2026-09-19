@@ -206,7 +206,7 @@
     <div class="brain-title">
       <div class="small">Automotive Portfolio Object</div>
       <h2>Pink Porsche 911</h2>
-      <p>Drag to orbit · pinch or scroll to zoom.</p>
+      <p id="carSubtitle">Drag to orbit · pinch or scroll to zoom.</p>
     </div>
     <div class="car-credit">
       3D model by <a href="https://sketchfab.com/3d-models/free-porsche-911-carrera-4s-d01b254483794de3819786d93e0e1ebf" target="_blank" rel="noopener noreferrer">Lionsharp Studios · CC BY-SA</a>
@@ -772,7 +772,7 @@
     carRimLight.position.set(4.6, 1.9, -3.4);
     carStage.add(carRimLight);
 
-    const porscheModelUrl = 'https://cdn.jsdelivr.net/gh/playcanvas/web-components@main/examples/assets/models/porsche-911-carrera-4s.glb';
+    const porscheModelUrl = './assets/porsche-911-carrera-4s.glb';
     let carModel = null;
     let carLoadPromise = null;
 
@@ -861,6 +861,7 @@
     const heroCopy=document.querySelector('#heroCopy');
     const brainUI=document.querySelector('#brainUI');
     const carUI=document.querySelector('#carUI');
+    const carSubtitle=document.querySelector('#carSubtitle');
     const legend=document.querySelector('#legend');
     const lobeCard=document.querySelector('#lobeCard');
     const lobeName=document.querySelector('#lobeName');
@@ -948,6 +949,10 @@
       controls.enabled=false;
       controls.autoRotate=false;
       lobeCard.classList.remove('show');
+      brainUI.classList.remove('visible');
+      legend.classList.remove('visible');
+      carSubtitle.textContent='Loading high-detail 3D Porsche…';
+      carUI.classList.add('visible');
       statusText.textContent='LOADING PORSCHE…';
 
       try {
@@ -957,6 +962,10 @@
         phase='brain';
         controls.enabled=true;
         controls.autoRotate=true;
+        carUI.classList.remove('visible');
+        brainUI.classList.add('visible');
+        legend.classList.add('visible');
+        carSubtitle.textContent='Drag to orbit · pinch or scroll to zoom.';
         statusText.textContent='DRAG · ZOOM · SELECT';
         return;
       }
@@ -986,6 +995,7 @@
             controls.enabled=true;
             controls.autoRotate=true;
             controls.autoRotateSpeed=.62;
+            carSubtitle.textContent='Drag to orbit · pinch or scroll to zoom.';
             carUI.classList.add('visible');
             backBtn.textContent='← Back to brain';
             backBtn.setAttribute('aria-label','Back to brain');
