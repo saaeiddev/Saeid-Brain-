@@ -25,6 +25,13 @@ jobs:
         uses: actions/checkout@v6
       - name: Apply production 3D upgrades
         run: node scripts/deploy-transform.js
+      - name: Bundle Porsche 911 model into Pages artifact
+        run: |
+          mkdir -p assets
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://raw.githubusercontent.com/playcanvas/web-components/main/examples/assets/models/porsche-911-carrera-4s.glb" \
+            --output assets/porsche-911-carrera-4s.glb
+          test -s assets/porsche-911-carrera-4s.glb
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
