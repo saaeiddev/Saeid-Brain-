@@ -152,6 +152,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const canvas = document.querySelector('#scene');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -307,211 +308,267 @@
     const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x7183a8,roughness:.44,metalness:.05})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
 
 
-    // ------- Visible human nervous-system extension -------
-    // Isolated visual layer only: the existing brain/lobes/links/interactions stay untouched.
-    const nsBody = new THREE.Group();
-    nsBody.name = 'visible-human-nervous-system';
-    nsBody.position.set(0,.24,.18);
-    brain.add(nsBody);
+    // ------- High-quality human body + nervous-system extension -------
+    // Uses a real CC0 GLB character as the body layer. The existing brain meshes,
+    // lobe links, UI, controls and camera are intentionally left unchanged.
+    const humanBodyLayer = new THREE.Group();
+    humanBodyLayer.name = 'high-quality-human-body-layer';
+    brain.add(humanBodyLayer);
 
-    const nsShellMat = new THREE.MeshPhysicalMaterial({
-      color:0x7399bd,
-      roughness:.44,
-      metalness:.01,
+    const humanBodyFallback = new THREE.Group();
+    humanBodyLayer.add(humanBodyFallback);
+
+    const humanSkinMat = new THREE.MeshPhysicalMaterial({
+      color:0x7ba7c8,
+      roughness:.46,
+      metalness:.04,
       transparent:true,
-      opacity:.34,
-      clearcoat:.18,
-      clearcoatRoughness:.5,
+      opacity:.22,
+      clearcoat:.30,
+      clearcoatRoughness:.42,
       depthWrite:false,
       side:THREE.DoubleSide
     });
-    const nsJointMat = nsShellMat.clone();
-    nsJointMat.opacity=.43;
 
-    const nsNerveMat = new THREE.MeshBasicMaterial({
-      color:0x57e2ff,
+    const humanEdgeMat = new THREE.MeshBasicMaterial({
+      color:0x9fdcff,
       transparent:true,
-      opacity:.96,
-      blending:THREE.AdditiveBlending,
-      depthWrite:false
+      opacity:.10,
+      wireframe:true,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
     });
-    const nsCoreMat = new THREE.MeshBasicMaterial({
+
+    const nervousNetwork = new THREE.Group();
+    nervousNetwork.name = 'peripheral-nervous-system';
+    brain.add(nervousNetwork);
+
+    const nerveCoreMat = new THREE.MeshBasicMaterial({
       color:0xeaffff,
       transparent:true,
       opacity:1,
-      blending:THREE.AdditiveBlending,
-      depthWrite:false
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
     });
-    const nsGlowMat = new THREE.MeshBasicMaterial({
-      color:0x2bd5ff,
+    const nerveMat = new THREE.MeshBasicMaterial({
+      color:0x56e4ff,
+      transparent:true,
+      opacity:.96,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+    const nerveGlowMat = new THREE.MeshBasicMaterial({
+      color:0x22cfff,
       transparent:true,
       opacity:.24,
-      blending:THREE.AdditiveBlending,
-      depthWrite:false
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
     });
 
-    const nsUp = new THREE.Vector3(0,1,0);
+    function makeNerve(points,radius=.018,material=nerveMat){
+      const curve=new THREE.CatmullRomCurve3(points,false,'catmullrom',.45);
+      const halo=new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(36,points.length*20),radius*3.0,8,false),
+        nerveGlowMat
+      );
+      halo.renderOrder=3;
+      nervousNetwork.add(halo);
 
-    function nsCapsule(a,b,radius,material=nsShellMat){
-      const delta=b.clone().sub(a);
-      const distance=delta.length();
-      const mesh=new THREE.Mesh(
-        new THREE.CapsuleGeometry(radius,Math.max(.02,distance-radius*2),8,20),
+      const tube=new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(36,points.length*20),radius,10,false),
         material
       );
-      mesh.position.copy(a).add(b).multiplyScalar(.5);
-      mesh.quaternion.setFromUnitVectors(nsUp,delta.normalize());
-      mesh.renderOrder=1;
-      nsBody.add(mesh);
-      return mesh;
+      tube.renderOrder=5;
+      nervousNetwork.add(tube);
+      return tube;
     }
 
-    function nsSphere(position,scale,material=nsShellMat){
-      const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,36,24),material);
-      mesh.position.copy(position);
-      mesh.scale.copy(scale);
-      mesh.renderOrder=1;
-      nsBody.add(mesh);
-      return mesh;
-    }
-
-    function nsTube(points,radius=.018,material=nsNerveMat){
-      const curve=new THREE.CatmullRomCurve3(points.map(p=>p.clone()),false,'catmullrom',.45);
-
-      const glow=new THREE.Mesh(
-        new THREE.TubeGeometry(curve,Math.max(30,points.length*18),radius*2.7,8,false),
-        nsGlowMat
+    function addNerveNode(position,size=.035){
+      const node=new THREE.Mesh(
+        new THREE.SphereGeometry(size,16,16),
+        new THREE.MeshBasicMaterial({
+          color:0xdffbff,
+          transparent:true,
+          opacity:.92,
+          depthWrite:false,
+          blending:THREE.AdditiveBlending
+        })
       );
-      glow.renderOrder=3;
-      nsBody.add(glow);
-
-      const mesh=new THREE.Mesh(
-        new THREE.TubeGeometry(curve,Math.max(30,points.length*18),radius,9,false),
-        material
-      );
-      mesh.renderOrder=5;
-      nsBody.add(mesh);
-      return mesh;
+      node.position.copy(position);
+      node.renderOrder=6;
+      nervousNetwork.add(node);
     }
 
-    // Neck and compact upper body, deliberately kept inside the existing camera frame.
-    nsCapsule(
-      new THREE.Vector3(.28,-1.43,-.12),
-      new THREE.Vector3(.04,-1.69,-.08),
-      .18
-    );
-    nsSphere(new THREE.Vector3(0,-1.93,-.05),new THREE.Vector3(1.26,.55,.34));
-    nsSphere(new THREE.Vector3(0,-2.33,-.04),new THREE.Vector3(.73,.43,.28));
-    nsSphere(new THREE.Vector3(0,-2.60,-.03),new THREE.Vector3(.84,.21,.29));
+    // The body's head is positioned behind the portfolio brain, while the torso
+    // and hands continue downward in the current camera framing.
+    const BODY_TOP_Y = 1.38;
+    const BODY_BOTTOM_Y = -3.08;
+    const BODY_HEIGHT = BODY_TOP_Y - BODY_BOTTOM_Y;
 
-    nsSphere(new THREE.Vector3(-1.03,-1.77,.00),new THREE.Vector3(.27,.25,.24),nsJointMat);
-    nsSphere(new THREE.Vector3( 1.03,-1.77,.00),new THREE.Vector3(.27,.25,.24),nsJointMat);
-
-    // Spinal cord visibly continues from the existing brain stem.
-    nsTube([
+    // Main spinal cord starts exactly at the existing brain stem.
+    makeNerve([
       new THREE.Vector3(.35,-1.48,-.18),
-      new THREE.Vector3(.25,-1.58,-.12),
-      new THREE.Vector3(.13,-1.72,-.07),
-      new THREE.Vector3(.06,-1.90,-.03),
-      new THREE.Vector3(.03,-2.11,.00),
-      new THREE.Vector3(.01,-2.33,.02),
-      new THREE.Vector3(0,-2.55,.04),
-      new THREE.Vector3(0,-2.73,.05)
-    ],.045,nsCoreMat);
+      new THREE.Vector3(.25,-1.58,-.10),
+      new THREE.Vector3(.13,-1.72,-.03),
+      new THREE.Vector3(.06,-1.90,.03),
+      new THREE.Vector3(.02,-2.12,.07),
+      new THREE.Vector3(0,-2.34,.09),
+      new THREE.Vector3(0,-2.57,.10),
+      new THREE.Vector3(0,-2.80,.11)
+    ],.047,nerveCoreMat);
 
-    // Paired spinal branches through the torso.
-    for(let nsi=0;nsi<7;nsi++){
-      const y=-1.90-nsi*.11;
-      const reach=.43+nsi*.045;
+    // Cervical and thoracic branches.
+    for(let i=0;i<7;i++){
+      const y=-1.78-i*.145;
+      const reach=.36+i*.055;
       [-1,1].forEach(side=>{
-        nsTube([
-          new THREE.Vector3(0,y,.01),
-          new THREE.Vector3(side*.16,y-.005,.05),
-          new THREE.Vector3(side*.33,y-.015,.09),
-          new THREE.Vector3(side*reach,y-.025,.12)
+        makeNerve([
+          new THREE.Vector3(0,y,.08),
+          new THREE.Vector3(side*.14,y-.01,.12),
+          new THREE.Vector3(side*.30,y-.025,.15),
+          new THREE.Vector3(side*reach,y-.045,.18)
         ],.0125);
       });
     }
 
-    function nsBuildArm(side){
-      const shoulder=new THREE.Vector3(side*1.03,-1.78,.01);
-      const upperMid=new THREE.Vector3(side*1.31,-1.89,.05);
-      const elbow=new THREE.Vector3(side*1.58,-2.00,.10);
-      const foreMid=new THREE.Vector3(side*1.83,-2.05,.15);
-      const wrist=new THREE.Vector3(side*2.07,-2.08,.20);
-      const palm=new THREE.Vector3(side*2.29,-2.07,.23);
+    // Brachial plexus and arm/hand nerves. Coordinates are aligned to the
+    // normalized human model once it is fitted below.
+    function buildPeripheralArm(side){
+      const shoulder = new THREE.Vector3(side*.74,-1.72,.13);
+      const upperMid = new THREE.Vector3(side*.76,-1.98,.16);
+      const elbow    = new THREE.Vector3(side*.75,-2.18,.18);
+      const foreMid  = new THREE.Vector3(side*.73,-2.40,.20);
+      const wrist    = new THREE.Vector3(side*.70,-2.58,.22);
+      const palm     = new THREE.Vector3(side*.69,-2.69,.23);
 
-      nsCapsule(shoulder,elbow,.135);
-      nsSphere(elbow,new THREE.Vector3(.16,.16,.15),nsJointMat);
-      nsCapsule(elbow,wrist,.112);
-      nsSphere(palm,new THREE.Vector3(.29,.19,.11));
-
-      // Brachial plexus and the main nerve route through the arm.
-      nsTube([
-        new THREE.Vector3(side*.05,-1.68,-.02),
-        new THREE.Vector3(side*.28,-1.70,.01),
-        new THREE.Vector3(side*.55,-1.72,.03),
-        new THREE.Vector3(side*.79,-1.74,.02),
+      makeNerve([
+        new THREE.Vector3(side*.05,-1.66,.04),
+        new THREE.Vector3(side*.25,-1.67,.08),
+        new THREE.Vector3(side*.48,-1.69,.11),
         shoulder
-      ],.026,nsCoreMat);
+      ],.027,nerveCoreMat);
 
-      nsTube([shoulder,upperMid,elbow,foreMid,wrist,palm],.021,nsCoreMat);
+      makeNerve([shoulder,upperMid,elbow,foreMid,wrist,palm],.022,nerveCoreMat);
 
-      // Secondary arm branches.
-      nsTube([
-        shoulder.clone().add(new THREE.Vector3(0,.045,.035)),
-        upperMid.clone().add(new THREE.Vector3(0,.035,.055)),
-        elbow.clone().add(new THREE.Vector3(0,.02,.06)),
-        foreMid.clone().add(new THREE.Vector3(0,.025,.055)),
-        wrist.clone().add(new THREE.Vector3(0,.015,.035))
-      ],.0105);
+      makeNerve([
+        shoulder.clone().add(new THREE.Vector3(side*.035,.02,.02)),
+        upperMid.clone().add(new THREE.Vector3(side*.03,.02,.035)),
+        elbow.clone().add(new THREE.Vector3(side*.025,.01,.04)),
+        foreMid.clone().add(new THREE.Vector3(side*.02,.01,.035)),
+        wrist.clone().add(new THREE.Vector3(side*.015,.005,.025))
+      ],.010);
 
-      nsTube([
-        shoulder.clone().add(new THREE.Vector3(0,-.045,-.025)),
-        upperMid.clone().add(new THREE.Vector3(0,-.035,-.045)),
-        elbow.clone().add(new THREE.Vector3(0,-.02,-.055)),
-        foreMid.clone().add(new THREE.Vector3(0,-.025,-.045)),
-        wrist.clone().add(new THREE.Vector3(0,-.015,-.028))
-      ],.0105);
+      makeNerve([
+        shoulder.clone().add(new THREE.Vector3(-side*.03,-.02,-.015)),
+        upperMid.clone().add(new THREE.Vector3(-side*.025,-.02,-.03)),
+        elbow.clone().add(new THREE.Vector3(-side*.02,-.01,-.035)),
+        foreMid.clone().add(new THREE.Vector3(-side*.015,-.01,-.03)),
+        wrist.clone().add(new THREE.Vector3(-side*.01,-.005,-.02))
+      ],.010);
 
-      // Palm and all five fingers.
-      const spreads=[.16,.08,0,-.08,-.16];
-      const lengths=[.34,.44,.49,.45,.36];
-
-      spreads.forEach((off,idx)=>{
-        const base=new THREE.Vector3(palm.x+side*.17,palm.y+off,palm.z+.006);
-        const knuckle=new THREE.Vector3(
-          base.x+side*(lengths[idx]*.48),
-          base.y+off*.07,
-          base.z+.012
-        );
+      // Fan the nerve terminals into five fingers.
+      const fingerOffsets=[.11,.055,0,-.055,-.11];
+      const fingerLengths=[.16,.20,.22,.20,.16];
+      fingerOffsets.forEach((off,index)=>{
+        const base=new THREE.Vector3(palm.x+side*.025,palm.y+off,palm.z+.01);
         const tip=new THREE.Vector3(
-          base.x+side*lengths[idx],
-          base.y+off*.12,
-          base.z+.004
+          base.x+side*fingerLengths[index],
+          base.y+off*.18,
+          base.z+.018
         );
-
-        nsCapsule(base,tip,.036);
-        nsTube([
+        makeNerve([
           palm,
-          new THREE.Vector3(palm.x+side*.10,palm.y+off*.45,palm.z+.012),
+          new THREE.Vector3(palm.x+side*.035,palm.y+off*.45,palm.z+.015),
           base,
-          knuckle,
           tip
-        ],.0095);
+        ],.0075);
+        addNerveNode(tip,.022);
       });
 
-      // Thumb.
-      const thumbBase=new THREE.Vector3(palm.x+side*.05,palm.y-.15,palm.z+.02);
-      const thumbJoint=new THREE.Vector3(palm.x+side*.19,palm.y-.23,palm.z+.018);
-      const thumbTip=new THREE.Vector3(palm.x+side*.32,palm.y-.30,palm.z+.008);
-
-      nsCapsule(thumbBase,thumbTip,.043);
-      nsTube([palm,thumbBase,thumbJoint,thumbTip],.010);
+      const thumbBase=new THREE.Vector3(palm.x+side*.04,palm.y-.10,palm.z+.02);
+      const thumbTip=new THREE.Vector3(palm.x+side*.18,palm.y-.18,palm.z+.035);
+      makeNerve([palm,thumbBase,thumbTip],.008);
+      addNerveNode(thumbTip,.024);
     }
 
-    nsBuildArm(-1);
-    nsBuildArm(1);
+    buildPeripheralArm(-1);
+    buildPeripheralArm(1);
+
+    // Load an actual human GLB. jsDelivr is used so GitHub Pages can fetch the
+    // binary asset with CORS support without changing this repository structure.
+    const humanLoader = new GLTFLoader();
+    humanLoader.load(
+      'https://cdn.jsdelivr.net/gh/programasweights/avatar@main/public/assets/character.glb',
+      (gltf)=>{
+        const model=gltf.scene;
+        model.name='cc0-human-body';
+
+        // Fit robustly from the model's real bounds instead of depending on its
+        // source scale. This guarantees it stays in the existing brain view.
+        model.updateMatrixWorld(true);
+        const initialBox=new THREE.Box3().setFromObject(model);
+        const initialSize=new THREE.Vector3();
+        initialBox.getSize(initialSize);
+        const scale=BODY_HEIGHT/Math.max(initialSize.y,.0001);
+        model.scale.setScalar(scale);
+        model.updateMatrixWorld(true);
+
+        const box=new THREE.Box3().setFromObject(model);
+        const center=new THREE.Vector3();
+        const size=new THREE.Vector3();
+        box.getCenter(center);
+        box.getSize(size);
+
+        // Center horizontally, face the camera, and put the head behind the brain.
+        model.position.x -= center.x;
+        model.position.y += BODY_TOP_Y-box.max.y;
+        model.position.z += .42-center.z;
+        model.rotation.y = 0;
+
+        model.traverse(obj=>{
+          if(!obj.isMesh) return;
+          obj.castShadow=false;
+          obj.receiveShadow=false;
+          obj.frustumCulled=true;
+          obj.renderOrder=1;
+          obj.material=humanSkinMat.clone();
+
+          // Add a very subtle geometric edge duplicate for anatomical readability.
+          const edge=obj.clone();
+          edge.material=humanEdgeMat.clone();
+          edge.renderOrder=2;
+          edge.scale.multiplyScalar(1.003);
+          edge.userData.isHumanEdge=true;
+          obj.parent?.add(edge);
+        });
+
+        humanBodyLayer.add(model);
+        humanBodyFallback.visible=false;
+      },
+      undefined,
+      ()=>{
+        // If the external GLB ever fails, keep a clearly visible anatomical fallback
+        // rather than silently showing nothing.
+        humanBodyFallback.visible=true;
+      }
+    );
+
+    // Lightweight fallback silhouette: only used if the GLB cannot load.
+    const fallbackMat=new THREE.MeshPhysicalMaterial({
+      color:0x789fc2,roughness:.5,transparent:true,opacity:.30,
+      depthWrite:false,side:THREE.DoubleSide
+    });
+    const fallbackTorso=new THREE.Mesh(new THREE.CapsuleGeometry(.48,1.35,8,18),fallbackMat);
+    fallbackTorso.position.set(0,-2.12,.20);
+    humanBodyFallback.add(fallbackTorso);
+    [-1,1].forEach(side=>{
+      const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.11,1.00,8,16),fallbackMat);
+      arm.position.set(side*.70,-2.22,.22);
+      humanBodyFallback.add(arm);
+      const hand=new THREE.Mesh(new THREE.BoxGeometry(.18,.30,.10),fallbackMat);
+      hand.position.set(side*.70,-2.86,.24);
+      humanBodyFallback.add(hand);
+    });
 
     // Neural orbit particles
     const neuralGeo = new THREE.BufferGeometry();
