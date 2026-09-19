@@ -94,11 +94,11 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
     brain.add(nerveLayer);
 
     const bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color:0x8db7cf,
+      color:0x79a8c4,
       roughness:.46,
       metalness:0,
       transparent:true,
-      opacity:.34,
+      opacity:.18,
       clearcoat:.18,
       clearcoatRoughness:.50,
       emissive:0x17394a,
@@ -256,22 +256,37 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
       const body = gltf.scene;
       body.name = 'bodyparts3d-human-skin';
 
+      // BodyParts3D arrives in a different presentation orientation than the
+      // portfolio scene. Rotate it to a front-facing anatomical view first.
+      body.rotation.y = -Math.PI / 2;
       body.updateMatrixWorld(true);
+
       const sourceBox = new THREE.Box3().setFromObject(body);
       const sourceSize = sourceBox.getSize(new THREE.Vector3());
 
-      // Fill the current brain view vertically while keeping the head behind the portfolio brain.
-      const targetHeight = 5.70;
+      // Keep the body subordinate to the brain: the head sits behind the brain
+      // instead of towering above it, and the full silhouette remains in frame.
+      const targetHeight = 4.60;
       const scale = targetHeight / Math.max(sourceSize.y,.0001);
       body.scale.setScalar(scale);
       body.updateMatrixWorld(true);
 
-      const scaledBox = new THREE.Box3().setFromObject(body);
-      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+      // Robustly center the *rotated* model from its actual world bounds.
+      // This fixes the previous left-offset/side-profile deployment.
+      let fittedBox = new THREE.Box3().setFromObject(body);
+      let fittedCenter = fittedBox.getCenter(new THREE.Vector3());
 
-      body.position.x -= scaledCenter.x;
-      body.position.y += 2.72 - scaledBox.max.y;
-      body.position.z += .22 - scaledCenter.z;
+      body.position.x += -fittedCenter.x;
+      body.position.y += 1.52 - fittedBox.max.y;
+      body.position.z += -0.62 - fittedCenter.z;
+      body.updateMatrixWorld(true);
+
+      // One final centering pass accounts for any root-node transforms in the GLB.
+      fittedBox = new THREE.Box3().setFromObject(body);
+      fittedCenter = fittedBox.getCenter(new THREE.Vector3());
+      body.position.x += -fittedCenter.x;
+      body.position.y += 1.52 - fittedBox.max.y;
+      body.updateMatrixWorld(true);
 
       body.traverse(obj => {
         if(!obj.isMesh) return;
