@@ -220,6 +220,15 @@
     <div class="legend-item"><span class="swatch" style="color:#ffbc54;background:#ffbc54"></span>Occipital · YouTube</div>
   </div>
 
+  <script>
+    // Boot fail-safe: never leave visitors trapped behind the loading overlay
+    // if a module/CDN dependency fails.
+    window.addEventListener('load', () => {
+      setTimeout(() => document.querySelector('#loading')?.classList.add('done'), 900);
+    });
+    setTimeout(() => document.querySelector('#loading')?.classList.add('done'), 4500);
+  </script>
+
   <script type="importmap">
     {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}
   </script>
@@ -227,7 +236,6 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const canvas = document.querySelector('#scene');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -776,60 +784,66 @@
 
     function loadPorsche(){
       if(carLoadPromise) return carLoadPromise;
-      carLoadPromise = new Promise((resolve,reject)=>{
-        const loader = new GLTFLoader();
-        loader.load(
-          porscheModelUrl,
-          gltf=>{
-            carModel = gltf.scene;
-            carModel.traverse(obj=>{
-              if(!obj.isMesh) return;
-              obj.castShadow = true;
-              obj.receiveShadow = true;
-              const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-              materials.forEach(mat=>{
-                if(!mat) return;
-                const name=(mat.name||'').toLowerCase();
-                if(name === 'coat' || name.includes('paint')){
-                  if(mat.color) mat.color.set('#ff79bd');
-                  if('metalness' in mat) mat.metalness = .16;
-                  if('roughness' in mat) mat.roughness = .19;
-                  if('clearcoat' in mat) mat.clearcoat = 1;
-                  if('clearcoatRoughness' in mat) mat.clearcoatRoughness = .06;
-                  if('envMapIntensity' in mat) mat.envMapIntensity = 1.7;
-                  mat.needsUpdate = true;
-                }
+
+      // Lazy-load the Porsche-only dependency so a CDN/model issue can never
+      // block the pen + brain experience from booting.
+      carLoadPromise = import('three/addons/loaders/GLTFLoader.js').then(({GLTFLoader}) =>
+        new Promise((resolve,reject)=>{
+          const loader = new GLTFLoader();
+          loader.load(
+            porscheModelUrl,
+            gltf=>{
+              carModel = gltf.scene;
+              carModel.traverse(obj=>{
+                if(!obj.isMesh) return;
+                obj.castShadow = true;
+                obj.receiveShadow = true;
+                const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+                materials.forEach(mat=>{
+                  if(!mat) return;
+                  const name=(mat.name||'').toLowerCase();
+                  if(name === 'coat' || name.includes('paint')){
+                    if(mat.color) mat.color.set('#ff79bd');
+                    if('metalness' in mat) mat.metalness = .16;
+                    if('roughness' in mat) mat.roughness = .19;
+                    if('clearcoat' in mat) mat.clearcoat = 1;
+                    if('clearcoatRoughness' in mat) mat.clearcoatRoughness = .06;
+                    if('envMapIntensity' in mat) mat.envMapIntensity = 1.7;
+                    mat.needsUpdate = true;
+                  }
+                });
               });
-            });
 
-            const box = new THREE.Box3().setFromObject(carModel);
-            const size = box.getSize(new THREE.Vector3());
-            const center = box.getCenter(new THREE.Vector3());
-            carModel.position.sub(center);
-            carRoot.add(carModel);
+              const box = new THREE.Box3().setFromObject(carModel);
+              const size = box.getSize(new THREE.Vector3());
+              const center = box.getCenter(new THREE.Vector3());
+              carModel.position.sub(center);
+              carRoot.add(carModel);
 
-            const maxDim = Math.max(size.x,size.y,size.z) || 1;
-            carRoot.scale.setScalar(5.35 / maxDim);
-            carRoot.rotation.y = -.70;
+              const maxDim = Math.max(size.x,size.y,size.z) || 1;
+              carRoot.scale.setScalar(5.35 / maxDim);
+              carRoot.rotation.y = -.70;
 
-            const fitted = new THREE.Box3().setFromObject(carRoot);
-            carRoot.position.y += -1.10 - fitted.min.y;
-            resolve(carModel);
-          },
-          evt=>{
-            if(evt.total && phase==='car-loading'){
-              const pct=Math.max(1,Math.min(99,Math.round((evt.loaded/evt.total)*100)));
-              statusText.textContent='LOADING PORSCHE · '+pct+'%';
-            }
-          },
-          reject
-        );
+              const fitted = new THREE.Box3().setFromObject(carRoot);
+              carRoot.position.y += -1.10 - fitted.min.y;
+              resolve(carModel);
+            },
+            evt=>{
+              if(evt.total && phase==='car-loading'){
+                const pct=Math.max(1,Math.min(99,Math.round((evt.loaded/evt.total)*100)));
+                statusText.textContent='LOADING PORSCHE · '+pct+'%';
+              }
+            },
+            reject
+          );
+        })
+      ).catch(err=>{
+        carLoadPromise=null;
+        throw err;
       });
+
       return carLoadPromise;
     }
-
-    // Warm the asset cache after the opening scene is stable, without blocking the intro.
-    setTimeout(()=>loadPorsche().catch(()=>{}), 1500);
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
