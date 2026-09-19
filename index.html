@@ -306,6 +306,213 @@
     // Brain stem
     const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x7183a8,roughness:.44,metalness:.05})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
 
+
+    // ------- Visible human nervous-system extension -------
+    // Isolated visual layer only: the existing brain/lobes/links/interactions stay untouched.
+    const nsBody = new THREE.Group();
+    nsBody.name = 'visible-human-nervous-system';
+    nsBody.position.set(0,.24,.18);
+    brain.add(nsBody);
+
+    const nsShellMat = new THREE.MeshPhysicalMaterial({
+      color:0x7399bd,
+      roughness:.44,
+      metalness:.01,
+      transparent:true,
+      opacity:.34,
+      clearcoat:.18,
+      clearcoatRoughness:.5,
+      depthWrite:false,
+      side:THREE.DoubleSide
+    });
+    const nsJointMat = nsShellMat.clone();
+    nsJointMat.opacity=.43;
+
+    const nsNerveMat = new THREE.MeshBasicMaterial({
+      color:0x57e2ff,
+      transparent:true,
+      opacity:.96,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+    const nsCoreMat = new THREE.MeshBasicMaterial({
+      color:0xeaffff,
+      transparent:true,
+      opacity:1,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+    const nsGlowMat = new THREE.MeshBasicMaterial({
+      color:0x2bd5ff,
+      transparent:true,
+      opacity:.24,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+
+    const nsUp = new THREE.Vector3(0,1,0);
+
+    function nsCapsule(a,b,radius,material=nsShellMat){
+      const delta=b.clone().sub(a);
+      const distance=delta.length();
+      const mesh=new THREE.Mesh(
+        new THREE.CapsuleGeometry(radius,Math.max(.02,distance-radius*2),8,20),
+        material
+      );
+      mesh.position.copy(a).add(b).multiplyScalar(.5);
+      mesh.quaternion.setFromUnitVectors(nsUp,delta.normalize());
+      mesh.renderOrder=1;
+      nsBody.add(mesh);
+      return mesh;
+    }
+
+    function nsSphere(position,scale,material=nsShellMat){
+      const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,36,24),material);
+      mesh.position.copy(position);
+      mesh.scale.copy(scale);
+      mesh.renderOrder=1;
+      nsBody.add(mesh);
+      return mesh;
+    }
+
+    function nsTube(points,radius=.018,material=nsNerveMat){
+      const curve=new THREE.CatmullRomCurve3(points.map(p=>p.clone()),false,'catmullrom',.45);
+
+      const glow=new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(30,points.length*18),radius*2.7,8,false),
+        nsGlowMat
+      );
+      glow.renderOrder=3;
+      nsBody.add(glow);
+
+      const mesh=new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(30,points.length*18),radius,9,false),
+        material
+      );
+      mesh.renderOrder=5;
+      nsBody.add(mesh);
+      return mesh;
+    }
+
+    // Neck and compact upper body, deliberately kept inside the existing camera frame.
+    nsCapsule(
+      new THREE.Vector3(.28,-1.43,-.12),
+      new THREE.Vector3(.04,-1.69,-.08),
+      .18
+    );
+    nsSphere(new THREE.Vector3(0,-1.93,-.05),new THREE.Vector3(1.26,.55,.34));
+    nsSphere(new THREE.Vector3(0,-2.33,-.04),new THREE.Vector3(.73,.43,.28));
+    nsSphere(new THREE.Vector3(0,-2.60,-.03),new THREE.Vector3(.84,.21,.29));
+
+    nsSphere(new THREE.Vector3(-1.03,-1.77,.00),new THREE.Vector3(.27,.25,.24),nsJointMat);
+    nsSphere(new THREE.Vector3( 1.03,-1.77,.00),new THREE.Vector3(.27,.25,.24),nsJointMat);
+
+    // Spinal cord visibly continues from the existing brain stem.
+    nsTube([
+      new THREE.Vector3(.35,-1.48,-.18),
+      new THREE.Vector3(.25,-1.58,-.12),
+      new THREE.Vector3(.13,-1.72,-.07),
+      new THREE.Vector3(.06,-1.90,-.03),
+      new THREE.Vector3(.03,-2.11,.00),
+      new THREE.Vector3(.01,-2.33,.02),
+      new THREE.Vector3(0,-2.55,.04),
+      new THREE.Vector3(0,-2.73,.05)
+    ],.045,nsCoreMat);
+
+    // Paired spinal branches through the torso.
+    for(let nsi=0;nsi<7;nsi++){
+      const y=-1.90-nsi*.11;
+      const reach=.43+nsi*.045;
+      [-1,1].forEach(side=>{
+        nsTube([
+          new THREE.Vector3(0,y,.01),
+          new THREE.Vector3(side*.16,y-.005,.05),
+          new THREE.Vector3(side*.33,y-.015,.09),
+          new THREE.Vector3(side*reach,y-.025,.12)
+        ],.0125);
+      });
+    }
+
+    function nsBuildArm(side){
+      const shoulder=new THREE.Vector3(side*1.03,-1.78,.01);
+      const upperMid=new THREE.Vector3(side*1.31,-1.89,.05);
+      const elbow=new THREE.Vector3(side*1.58,-2.00,.10);
+      const foreMid=new THREE.Vector3(side*1.83,-2.05,.15);
+      const wrist=new THREE.Vector3(side*2.07,-2.08,.20);
+      const palm=new THREE.Vector3(side*2.29,-2.07,.23);
+
+      nsCapsule(shoulder,elbow,.135);
+      nsSphere(elbow,new THREE.Vector3(.16,.16,.15),nsJointMat);
+      nsCapsule(elbow,wrist,.112);
+      nsSphere(palm,new THREE.Vector3(.29,.19,.11));
+
+      // Brachial plexus and the main nerve route through the arm.
+      nsTube([
+        new THREE.Vector3(side*.05,-1.68,-.02),
+        new THREE.Vector3(side*.28,-1.70,.01),
+        new THREE.Vector3(side*.55,-1.72,.03),
+        new THREE.Vector3(side*.79,-1.74,.02),
+        shoulder
+      ],.026,nsCoreMat);
+
+      nsTube([shoulder,upperMid,elbow,foreMid,wrist,palm],.021,nsCoreMat);
+
+      // Secondary arm branches.
+      nsTube([
+        shoulder.clone().add(new THREE.Vector3(0,.045,.035)),
+        upperMid.clone().add(new THREE.Vector3(0,.035,.055)),
+        elbow.clone().add(new THREE.Vector3(0,.02,.06)),
+        foreMid.clone().add(new THREE.Vector3(0,.025,.055)),
+        wrist.clone().add(new THREE.Vector3(0,.015,.035))
+      ],.0105);
+
+      nsTube([
+        shoulder.clone().add(new THREE.Vector3(0,-.045,-.025)),
+        upperMid.clone().add(new THREE.Vector3(0,-.035,-.045)),
+        elbow.clone().add(new THREE.Vector3(0,-.02,-.055)),
+        foreMid.clone().add(new THREE.Vector3(0,-.025,-.045)),
+        wrist.clone().add(new THREE.Vector3(0,-.015,-.028))
+      ],.0105);
+
+      // Palm and all five fingers.
+      const spreads=[.16,.08,0,-.08,-.16];
+      const lengths=[.34,.44,.49,.45,.36];
+
+      spreads.forEach((off,idx)=>{
+        const base=new THREE.Vector3(palm.x+side*.17,palm.y+off,palm.z+.006);
+        const knuckle=new THREE.Vector3(
+          base.x+side*(lengths[idx]*.48),
+          base.y+off*.07,
+          base.z+.012
+        );
+        const tip=new THREE.Vector3(
+          base.x+side*lengths[idx],
+          base.y+off*.12,
+          base.z+.004
+        );
+
+        nsCapsule(base,tip,.036);
+        nsTube([
+          palm,
+          new THREE.Vector3(palm.x+side*.10,palm.y+off*.45,palm.z+.012),
+          base,
+          knuckle,
+          tip
+        ],.0095);
+      });
+
+      // Thumb.
+      const thumbBase=new THREE.Vector3(palm.x+side*.05,palm.y-.15,palm.z+.02);
+      const thumbJoint=new THREE.Vector3(palm.x+side*.19,palm.y-.23,palm.z+.018);
+      const thumbTip=new THREE.Vector3(palm.x+side*.32,palm.y-.30,palm.z+.008);
+
+      nsCapsule(thumbBase,thumbTip,.043);
+      nsTube([palm,thumbBase,thumbJoint,thumbTip],.010);
+    }
+
+    nsBuildArm(-1);
+    nsBuildArm(1);
+
     // Neural orbit particles
     const neuralGeo = new THREE.BufferGeometry();
     const n=420, npos=new Float32Array(n*3);
