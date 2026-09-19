@@ -467,39 +467,47 @@
     const stem = new THREE.Mesh(new THREE.CapsuleGeometry(.27,1.0,12,24), new THREE.MeshPhysicalMaterial({color:0x667797,roughness:.5,metalness:.03})); stem.position.set(.35,-1.48,-.18); stem.rotation.z=-.22; brain.add(stem);
 
     // ------- Human nervous system extension -------
-    // This is intentionally isolated from the interactive lobe meshes. It only adds
-    // a visible upper-body silhouette and a continuous peripheral nervous system.
+    // Separate non-interactive anatomy layer. Existing brain geometry, links, UI,
+    // orbit controls and camera are intentionally left untouched.
     const nervousSystemBody = new THREE.Group();
     nervousSystemBody.name = 'human-nervous-system-extension';
     brain.add(nervousSystemBody);
 
-    // A slightly stronger translucent shell makes the human torso, arms and hands
-    // readable while keeping the brain as the hero object.
+    // Keep the entire upper body inside the current brain camera framing.
+    nervousSystemBody.position.set(0,.28,.22);
+
     const bodyShellMat = new THREE.MeshPhysicalMaterial({
-      color:0x7894b4,
-      roughness:.48,
+      color:0x7298bd,
+      roughness:.42,
       metalness:.01,
       transparent:true,
-      opacity:.18,
-      clearcoat:.18,
-      clearcoatRoughness:.55,
+      opacity:.34,
+      clearcoat:.22,
+      clearcoatRoughness:.50,
       depthWrite:false,
       side:THREE.DoubleSide
     });
     const jointShellMat = bodyShellMat.clone();
-    jointShellMat.opacity=.22;
+    jointShellMat.opacity=.42;
 
     const nerveMat = new THREE.MeshBasicMaterial({
-      color:0x67dcff,
+      color:0x4ee2ff,
       transparent:true,
-      opacity:.82,
+      opacity:.94,
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
     const nerveCoreMat = new THREE.MeshBasicMaterial({
-      color:0xe3fbff,
+      color:0xeaffff,
       transparent:true,
-      opacity:.97,
+      opacity:1,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    });
+    const nerveGlowMat = new THREE.MeshBasicMaterial({
+      color:0x22cfff,
+      transparent:true,
+      opacity:.28,
       blending:THREE.AdditiveBlending,
       depthWrite:false
     });
@@ -507,34 +515,41 @@
     const upAxis = new THREE.Vector3(0,1,0);
 
     function capsuleBetween(a,b,radius,material=bodyShellMat){
-      const start=a.clone(), end=b.clone();
-      const delta=end.clone().sub(start);
+      const start=a.clone(), finish=b.clone();
+      const delta=finish.clone().sub(start);
       const distance=delta.length();
-      const cylindricalLength=Math.max(.02,distance-radius*2);
       const mesh=new THREE.Mesh(
-        new THREE.CapsuleGeometry(radius,cylindricalLength,8,20),
+        new THREE.CapsuleGeometry(radius,Math.max(.02,distance-radius*2),10,22),
         material
       );
-      mesh.position.copy(start).add(end).multiplyScalar(.5);
+      mesh.position.copy(start).add(finish).multiplyScalar(.5);
       mesh.quaternion.setFromUnitVectors(upAxis,delta.normalize());
       mesh.renderOrder=1;
       nervousSystemBody.add(mesh);
       return mesh;
     }
 
-    function nerveTube(points,radius=.018,material=nerveMat){
+    function nerveTube(points,radius=.018,material=nerveMat,glow=true){
       const curve=new THREE.CatmullRomCurve3(points.map(p=>p.clone()),false,'catmullrom',.45);
+      if(glow){
+        const halo=new THREE.Mesh(
+          new THREE.TubeGeometry(curve,Math.max(36,points.length*22),radius*2.8,8,false),
+          nerveGlowMat
+        );
+        halo.renderOrder=3;
+        nervousSystemBody.add(halo);
+      }
       const mesh=new THREE.Mesh(
-        new THREE.TubeGeometry(curve,Math.max(32,points.length*20),radius,9,false),
+        new THREE.TubeGeometry(curve,Math.max(36,points.length*22),radius,10,false),
         material
       );
-      mesh.renderOrder=4;
+      mesh.renderOrder=5;
       nervousSystemBody.add(mesh);
       return mesh;
     }
 
     function shellSphere(position,scale,material=bodyShellMat){
-      const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,40,28),material);
+      const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,42,30),material);
       mesh.position.copy(position);
       mesh.scale.copy(scale);
       mesh.renderOrder=1;
@@ -542,130 +557,120 @@
       return mesh;
     }
 
-    // Neck + anatomically readable upper torso. Everything stays below/behind the
-    // existing brain so none of the current lobes or their links are altered.
+    // Neck + upper torso silhouette directly under the existing brain stem.
     capsuleBetween(
-      new THREE.Vector3(.25,-1.46,-.22),
-      new THREE.Vector3(.04,-1.82,-.42),
-      .20,
+      new THREE.Vector3(.28,-1.42,-.10),
+      new THREE.Vector3(.04,-1.68,-.08),
+      .18,
       bodyShellMat
     );
-    shellSphere(new THREE.Vector3(0,-2.18,-.43),new THREE.Vector3(1.38,.78,.43)); // chest
-    shellSphere(new THREE.Vector3(0,-2.79,-.46),new THREE.Vector3(.82,.65,.34)); // abdomen
-    shellSphere(new THREE.Vector3(0,-3.17,-.48),new THREE.Vector3(.94,.34,.35)); // pelvis
-    shellSphere(new THREE.Vector3(-1.16,-1.99,-.40),new THREE.Vector3(.30,.28,.28),jointShellMat);
-    shellSphere(new THREE.Vector3( 1.16,-1.99,-.40),new THREE.Vector3(.30,.28,.28),jointShellMat);
+    shellSphere(new THREE.Vector3(0,-1.91,-.08),new THREE.Vector3(1.26,.54,.34)); // chest
+    shellSphere(new THREE.Vector3(0,-2.31,-.08),new THREE.Vector3(.72,.42,.27)); // abdomen
+    shellSphere(new THREE.Vector3(0,-2.58,-.08),new THREE.Vector3(.82,.20,.28)); // pelvis
 
-    // Spinal cord: continuous from the existing brain stem through the torso.
+    // Shoulders remain clearly visible beside the brain.
+    shellSphere(new THREE.Vector3(-1.03,-1.75,-.03),new THREE.Vector3(.27,.25,.24),jointShellMat);
+    shellSphere(new THREE.Vector3( 1.03,-1.75,-.03),new THREE.Vector3(.27,.25,.24),jointShellMat);
+
+    // Bright central spinal cord, visually continuous with the current brain stem.
     nerveTube([
-      new THREE.Vector3(.35,-1.48,-.18),
-      new THREE.Vector3(.24,-1.64,-.25),
-      new THREE.Vector3(.12,-1.83,-.33),
-      new THREE.Vector3(.05,-2.05,-.36),
-      new THREE.Vector3(.02,-2.34,-.38),
-      new THREE.Vector3(0,-2.66,-.40),
-      new THREE.Vector3(0,-2.98,-.42),
-      new THREE.Vector3(0,-3.28,-.44)
-    ],.043,nerveCoreMat);
+      new THREE.Vector3(.35,-1.47,-.18),
+      new THREE.Vector3(.25,-1.57,-.11),
+      new THREE.Vector3(.13,-1.70,-.07),
+      new THREE.Vector3(.06,-1.88,-.03),
+      new THREE.Vector3(.03,-2.08,.00),
+      new THREE.Vector3(.01,-2.30,.02),
+      new THREE.Vector3(0,-2.52,.03),
+      new THREE.Vector3(0,-2.72,.04)
+    ],.044,nerveCoreMat);
 
-    // Paired thoracic branches make the continuation through the body clearly visible.
+    // Visible paired spinal branches through the chest and abdomen.
     for(let i=0;i<7;i++){
-      const y=-2.04-i*.17;
-      const reach=.52+i*.055;
+      const y=-1.88-i*.11;
+      const reach=.43+i*.045;
       [-1,1].forEach(side=>{
         nerveTube([
-          new THREE.Vector3(0,y,-.38),
-          new THREE.Vector3(side*.18,y-.01,-.34),
-          new THREE.Vector3(side*.42,y-.03,-.28),
-          new THREE.Vector3(side*reach,y-.05,-.22)
+          new THREE.Vector3(0,y,.01),
+          new THREE.Vector3(side*.16,y-.005,.04),
+          new THREE.Vector3(side*.33,y-.015,.08),
+          new THREE.Vector3(side*reach,y-.025,.11)
         ],.0125,nerveMat);
       });
     }
 
-    // Pelvic / lower-trunk branches, kept compact so the existing camera framing is unchanged.
-    [-1,1].forEach(side=>{
-      nerveTube([
-        new THREE.Vector3(0,-2.92,-.42),
-        new THREE.Vector3(side*.24,-3.02,-.38),
-        new THREE.Vector3(side*.55,-3.15,-.30),
-        new THREE.Vector3(side*.78,-3.24,-.25)
-      ],.015,nerveMat);
-    });
-
     function buildArmAndHand(side){
-      const shoulder=new THREE.Vector3(side*1.15,-2.02,-.38);
-      const upperArmMid=new THREE.Vector3(side*1.48,-2.17,-.31);
-      const elbow=new THREE.Vector3(side*1.80,-2.34,-.22);
-      const forearmMid=new THREE.Vector3(side*2.08,-2.42,-.13);
-      const wrist=new THREE.Vector3(side*2.34,-2.49,-.06);
-      const palm=new THREE.Vector3(side*2.55,-2.50,-.02);
+      const shoulder=new THREE.Vector3(side*1.02,-1.76,-.01);
+      const upperMid=new THREE.Vector3(side*1.30,-1.87,.03);
+      const elbow=new THREE.Vector3(side*1.57,-1.99,.08);
+      const foreMid=new THREE.Vector3(side*1.82,-2.04,.13);
+      const wrist=new THREE.Vector3(side*2.06,-2.07,.18);
+      const palm=new THREE.Vector3(side*2.27,-2.06,.21);
 
-      // Visible human arm silhouette.
-      capsuleBetween(shoulder,elbow,.155,bodyShellMat);
-      shellSphere(elbow,new THREE.Vector3(.18,.18,.17),jointShellMat);
-      capsuleBetween(elbow,wrist,.125,bodyShellMat);
-      shellSphere(palm,new THREE.Vector3(.31,.22,.12),bodyShellMat);
+      // Human arm shell.
+      capsuleBetween(shoulder,elbow,.135,bodyShellMat);
+      shellSphere(elbow,new THREE.Vector3(.16,.16,.15),jointShellMat);
+      capsuleBetween(elbow,wrist,.112,bodyShellMat);
+      shellSphere(palm,new THREE.Vector3(.29,.19,.11),bodyShellMat);
 
-      // Brachial plexus flowing from spinal cord into the shoulder.
+      // Brachial plexus: spinal cord -> shoulder.
       nerveTube([
-        new THREE.Vector3(side*.07,-1.82,-.31),
-        new THREE.Vector3(side*.34,-1.89,-.29),
-        new THREE.Vector3(side*.72,-1.95,-.27),
+        new THREE.Vector3(side*.05,-1.67,-.03),
+        new THREE.Vector3(side*.28,-1.69,.00),
+        new THREE.Vector3(side*.55,-1.71,.02),
+        new THREE.Vector3(side*.78,-1.73,.00),
         shoulder
-      ],.027,nerveCoreMat);
+      ],.026,nerveCoreMat);
 
-      // Three principal arm paths: median, radial and ulnar-style branches.
-      nerveTube([shoulder,upperArmMid,elbow,forearmMid,wrist,palm],.022,nerveCoreMat);
-      nerveTube([
-        shoulder.clone().add(new THREE.Vector3(0,.05,.04)),
-        upperArmMid.clone().add(new THREE.Vector3(0,.045,.07)),
-        elbow.clone().add(new THREE.Vector3(0,.02,.08)),
-        forearmMid.clone().add(new THREE.Vector3(0,.035,.08)),
-        wrist.clone().add(new THREE.Vector3(0,.02,.05))
-      ],.0115,nerveMat);
-      nerveTube([
-        shoulder.clone().add(new THREE.Vector3(0,-.045,-.02)),
-        upperArmMid.clone().add(new THREE.Vector3(0,-.04,-.055)),
-        elbow.clone().add(new THREE.Vector3(0,-.025,-.07)),
-        forearmMid.clone().add(new THREE.Vector3(0,-.03,-.055)),
-        wrist.clone().add(new THREE.Vector3(0,-.02,-.03))
-      ],.0115,nerveMat);
+      // Main arm nerve.
+      nerveTube([shoulder,upperMid,elbow,foreMid,wrist,palm],.021,nerveCoreMat);
 
-      // Palm fan so the nerves visibly split toward all five fingers.
-      const fingerSpread=[.18,.09,0,-.09,-.18];
-      const fingerLength=[.39,.50,.55,.51,.42];
-      fingerSpread.forEach((off,index)=>{
-        const base=new THREE.Vector3(
-          palm.x+side*.20,
-          palm.y+off,
-          palm.z+.005
-        );
-        const joint=new THREE.Vector3(
-          base.x+side*(fingerLength[index]*.52),
-          base.y+off*.08,
+      // Two secondary peripheral branches.
+      nerveTube([
+        shoulder.clone().add(new THREE.Vector3(0,.045,.035)),
+        upperMid.clone().add(new THREE.Vector3(0,.035,.055)),
+        elbow.clone().add(new THREE.Vector3(0,.02,.06)),
+        foreMid.clone().add(new THREE.Vector3(0,.025,.055)),
+        wrist.clone().add(new THREE.Vector3(0,.015,.035))
+      ],.0105,nerveMat);
+      nerveTube([
+        shoulder.clone().add(new THREE.Vector3(0,-.045,-.025)),
+        upperMid.clone().add(new THREE.Vector3(0,-.035,-.045)),
+        elbow.clone().add(new THREE.Vector3(0,-.02,-.055)),
+        foreMid.clone().add(new THREE.Vector3(0,-.025,-.045)),
+        wrist.clone().add(new THREE.Vector3(0,-.015,-.028))
+      ],.0105,nerveMat);
+
+      // Five fingers, with clearly visible nerves extending to the fingertips.
+      const spreads=[.16,.08,0,-.08,-.16];
+      const lengths=[.34,.44,.49,.45,.36];
+      spreads.forEach((off,index)=>{
+        const base=new THREE.Vector3(palm.x+side*.17,palm.y+off,palm.z+.006);
+        const knuckle=new THREE.Vector3(
+          base.x+side*(lengths[index]*.48),
+          base.y+off*.07,
           base.z+.012
         );
         const tip=new THREE.Vector3(
-          base.x+side*fingerLength[index],
-          base.y+off*.14,
-          base.z
+          base.x+side*lengths[index],
+          base.y+off*.12,
+          base.z+.004
         );
-        capsuleBetween(base,tip,.041,bodyShellMat);
+        capsuleBetween(base,tip,.036,bodyShellMat);
         nerveTube([
           palm,
-          new THREE.Vector3(palm.x+side*.14,palm.y+off*.45,palm.z+.01),
+          new THREE.Vector3(palm.x+side*.10,palm.y+off*.45,palm.z+.012),
           base,
-          joint,
+          knuckle,
           tip
         ],.0095,nerveMat);
       });
 
-      // Thumb + terminal nerve.
-      const thumbBase=new THREE.Vector3(palm.x+side*.06,palm.y-.17,palm.z+.025);
-      const thumbJoint=new THREE.Vector3(palm.x+side*.24,palm.y-.28,palm.z+.02);
-      const thumbTip=new THREE.Vector3(palm.x+side*.39,palm.y-.37,palm.z+.005);
-      capsuleBetween(thumbBase,thumbTip,.049,bodyShellMat);
-      nerveTube([palm,thumbBase,thumbJoint,thumbTip],.0105,nerveMat);
+      // Thumb + nerve.
+      const thumbBase=new THREE.Vector3(palm.x+side*.05,palm.y-.15,palm.z+.02);
+      const thumbJoint=new THREE.Vector3(palm.x+side*.19,palm.y-.23,palm.z+.018);
+      const thumbTip=new THREE.Vector3(palm.x+side*.32,palm.y-.30,palm.z+.008);
+      capsuleBetween(thumbBase,thumbTip,.043,bodyShellMat);
+      nerveTube([palm,thumbBase,thumbJoint,thumbTip],.010,nerveMat);
     }
 
     buildArmAndHand(-1);
