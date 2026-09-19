@@ -151,6 +151,36 @@
       opacity:1; visibility:visible; transform:translate(-50%,0) scale(1);
     }
 
+    #carLeader {
+      position:fixed; inset:0; z-index:29; width:100%; height:100%;
+      pointer-events:none; overflow:visible; opacity:0; transition:opacity .18s ease;
+    }
+    #carLeader.show { opacity:1; }
+    #carLeaderPath {
+      fill:none; stroke:rgba(255,184,220,.92); stroke-width:1.25;
+      vector-effect:non-scaling-stroke; stroke-linecap:round; stroke-linejoin:round;
+      filter:drop-shadow(0 0 6px rgba(255,140,200,.62));
+      stroke-dasharray:1; stroke-dashoffset:1;
+      transition:stroke-dashoffset .34s cubic-bezier(.2,.8,.2,1);
+    }
+    #carLeader.show #carLeaderPath { stroke-dashoffset:0; }
+    #carLeaderDot {
+      fill:#fff3fb; stroke:rgba(255,150,210,.85); stroke-width:1;
+      filter:drop-shadow(0 0 7px rgba(255,150,210,.95));
+    }
+    #carInfo {
+      position:fixed; left:50%; top:50%; z-index:30;
+      transform:translate(-50%,-50%) scale(.96); padding:12px 17px;
+      border-radius:16px; border:1px solid rgba(255,255,255,.20);
+      background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.055)),rgba(7,12,24,.42);
+      box-shadow:0 18px 58px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.16);
+      backdrop-filter:blur(24px) saturate(155%); -webkit-backdrop-filter:blur(24px) saturate(155%);
+      color:#f7fbff; font-size:13px; font-weight:600; letter-spacing:.025em;
+      opacity:0; visibility:hidden; pointer-events:none; white-space:nowrap;
+      transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+    }
+    #carInfo.show { opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1); }
+
     .loading { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:#050712; transition:opacity .7s ease, visibility .7s ease; }
     .loading.done { opacity:0; visibility:hidden; }
     .loader-inner { text-align:center; }
@@ -231,6 +261,11 @@
   </div>
 
   <div id="carContactToast" role="status" aria-live="polite">09016979635</div>
+  <svg id="carLeader" aria-hidden="true">
+    <path id="carLeaderPath" pathLength="1"></path>
+    <circle id="carLeaderDot" r="3.2"></circle>
+  </svg>
+  <div id="carInfo" role="status" aria-live="polite"></div>
 
   <div class="legend" id="legend">
     <div class="legend-item"><span class="swatch" style="color:#4ae7ff;background:#4ae7ff"></span>Frontal · Main site</div>
@@ -798,6 +833,8 @@
     let carLongAxis = 'x';
     let carFrontSign = 1;
     let carToastTimer = null;
+    let carInfoTimer = null;
+    let carCalloutAnchorWorld = null;
 
     function responsiveCarScale(){
       const aspect = innerWidth / innerHeight;
@@ -917,6 +954,10 @@
     const carUI=document.querySelector('#carUI');
     const carSubtitle=document.querySelector('#carSubtitle');
     const carContactToast=document.querySelector('#carContactToast');
+    const carInfo=document.querySelector('#carInfo');
+    const carLeader=document.querySelector('#carLeader');
+    const carLeaderPath=document.querySelector('#carLeaderPath');
+    const carLeaderDot=document.querySelector('#carLeaderDot');
     const legend=document.querySelector('#legend');
     const lobeCard=document.querySelector('#lobeCard');
     const lobeName=document.querySelector('#lobeName');
@@ -998,6 +1039,47 @@
       const begin=performance.now(); const from=brain.scale.x;
       const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+(sceneFitScale-.01)*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
     }
+    function hideCarInfo(){
+      clearTimeout(carInfoTimer);
+      carInfo.classList.remove('show');
+      carLeader.classList.remove('show');
+      carCalloutAnchorWorld=null;
+    }
+
+    function updateCarCallout(){
+      if(!carCalloutAnchorWorld || phase!=='car') return;
+      const projected=carCalloutAnchorWorld.clone().project(camera);
+      if(projected.z>1){ hideCarInfo(); return; }
+      const ax=(projected.x*.5+.5)*innerWidth;
+      const ay=(-projected.y*.5+.5)*innerHeight;
+      const side=ax<innerWidth*.52 ? 1 : -1;
+      const elbowX=ax+side*Math.min(68,innerWidth*.12);
+      const elbowY=ay+(ay<innerHeight*.46 ? 24 : -24);
+      const labelHalf=Math.min(115,innerWidth*.25);
+      const lx=THREE.MathUtils.clamp(elbowX+side*Math.min(90,innerWidth*.16),labelHalf+12,innerWidth-labelHalf-12);
+      const ly=THREE.MathUtils.clamp(elbowY,58,innerHeight-58);
+      const labelEdgeX=lx-side*(labelHalf*.70);
+      carLeaderDot.setAttribute('cx',ax.toFixed(1));
+      carLeaderDot.setAttribute('cy',ay.toFixed(1));
+      carLeaderPath.setAttribute('d',`M ${ax.toFixed(1)} ${ay.toFixed(1)} L ${elbowX.toFixed(1)} ${elbowY.toFixed(1)} L ${labelEdgeX.toFixed(1)} ${ly.toFixed(1)}`);
+      carInfo.style.left=lx+'px';
+      carInfo.style.top=ly+'px';
+    }
+
+    function showCarInfo(label,worldPoint){
+      clearTimeout(carInfoTimer);
+      carInfo.textContent=label;
+      carCalloutAnchorWorld=worldPoint.clone();
+      updateCarCallout();
+      carInfo.classList.remove('show');
+      carLeader.classList.remove('show');
+      requestAnimationFrame(()=>{
+        carInfo.classList.add('show');
+        carLeader.classList.add('show');
+      });
+      carInfoTimer=setTimeout(hideCarInfo,2800);
+    }
+
     function showCarPhone(){
       clearTimeout(carToastTimer);
       carContactToast.textContent='09016979635';
@@ -1120,6 +1202,7 @@
       carUI.classList.remove('visible');
       carContactToast.classList.remove('show');
       clearTimeout(carToastTimer);
+      hideCarInfo();
       backBtn.classList.remove('show');
       statusText.textContent='RETURNING TO NEURAL MAP…';
 
@@ -1268,10 +1351,13 @@
         const hit=raycaster.intersectObject(carModel,true)[0];
         const action=classifyCarHit(hit);
         if(action==='instagram'){
-          window.open('https://instagram.com/saeidartz','_blank','noopener,noreferrer');
+          showCarInfo('Instagram · @saeidartz',hit.point);
+          setTimeout(()=>window.open('https://instagram.com/saeidartz','_blank','noopener,noreferrer'),220);
         }else if(action==='telegram'){
-          window.open('https://t.me/amirsaeiddehghan','_blank','noopener,noreferrer');
+          showCarInfo('Telegram · @amirsaeiddehghan',hit.point);
+          setTimeout(()=>window.open('https://t.me/amirsaeiddehghan','_blank','noopener,noreferrer'),220);
         }else if(action==='phone'){
+          showCarInfo('Phone · 09016979635',hit.point);
           showCarPhone();
         }
       }
@@ -1293,6 +1379,7 @@
       if(phase==='brain') brain.scale.setScalar(sceneFitScale);
       carFitScale = responsiveCarScale();
       if(phase==='car') carStage.scale.setScalar(carFitScale);
+      updateCarCallout();
     });
 
     const clock=new THREE.Clock();
@@ -1318,6 +1405,7 @@
       stars.rotation.y += .00008;
       ringGroup.rotation.z += .0007;
       controls.update();
+      if(phase==='car') updateCarCallout();
       renderer.render(scene,camera);
     }
     animate(performance.now());
