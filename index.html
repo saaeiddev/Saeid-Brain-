@@ -120,6 +120,20 @@
       transform:translate(-50%,-50%) scale(1);
     }
 
+    .brain-next-hint {
+      display:inline-flex; margin-top:12px; padding:8px 11px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.11); background:rgba(255,255,255,.045);
+      color:#b7c4dd; font-size:10px; letter-spacing:.045em;
+      backdrop-filter:blur(14px);
+    }
+    .car-credit {
+      position:absolute; left:50%; bottom:max(22px, env(safe-area-inset-bottom));
+      transform:translateX(-50%); width:min(92vw,620px); text-align:center;
+      color:#7f8ca9; font-size:9px; letter-spacing:.08em; text-transform:uppercase;
+    }
+    .car-credit a { color:#aebbd4; text-decoration:none; border-bottom:1px solid rgba(174,187,212,.28); pointer-events:auto; }
+    .car-credit a:hover { color:#fff; }
+
     .loading { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:#050712; transition:opacity .7s ease, visibility .7s ease; }
     .loading.done { opacity:0; visibility:hidden; }
     .loader-inner { text-align:center; }
@@ -176,6 +190,7 @@
       <div class="small">Neural Portfolio Map</div>
       <h2>Explore the glowing lobes</h2>
       <p>Rotate the brain, zoom in, then select a region.</p>
+      <div class="brain-next-hint">Tap empty space to reveal the Porsche 911</div>
     </div>
     <div id="lobeCard">
       <div class="meta">
@@ -184,6 +199,17 @@
         <div id="lobeDest">Personal Website</div>
       </div>
       <div id="openLabel">Open ↗</div>
+    </div>
+  </div>
+
+  <div class="brain-ui" id="carUI">
+    <div class="brain-title">
+      <div class="small">Automotive Portfolio Object</div>
+      <h2>Pink Porsche 911</h2>
+      <p>Drag to orbit · pinch or scroll to zoom.</p>
+    </div>
+    <div class="car-credit">
+      3D model by <a href="https://sketchfab.com/3d-models/free-porsche-911-carrera-4s-d01b254483794de3819786d93e0e1ebf" target="_blank" rel="noopener noreferrer">Lionsharp Studios · CC BY-SA</a>
     </div>
   </div>
 
@@ -201,6 +227,7 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const canvas = document.querySelector('#scene');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
@@ -707,6 +734,103 @@
       }
     }
 
+    // ------- Porsche 911 scene -------
+    // High-detail web-ready Porsche 911 Carrera 4S model by Lionsharp Studios.
+    // Loaded from PlayCanvas' public web-components asset mirror and recolored
+    // through the model's dedicated exterior "coat" material.
+    const carStage = new THREE.Group();
+    carStage.visible = false;
+    scene.add(carStage);
+
+    const carRoot = new THREE.Group();
+    carStage.add(carRoot);
+
+    const carFloor = new THREE.Mesh(
+      new THREE.CircleGeometry(7.5, 96),
+      new THREE.MeshPhysicalMaterial({
+        color:0x070914, metalness:.22, roughness:.24,
+        clearcoat:.55, clearcoatRoughness:.20
+      })
+    );
+    carFloor.rotation.x = -Math.PI/2;
+    carFloor.position.y = -1.14;
+    carFloor.receiveShadow = true;
+    carStage.add(carFloor);
+
+    const carPinkLight = new THREE.PointLight(0xff77bd, 42, 22, 2);
+    carPinkLight.position.set(-4.2, 2.5, 3.8);
+    carStage.add(carPinkLight);
+    const carRimLight = new THREE.PointLight(0xd7efff, 34, 20, 2);
+    carRimLight.position.set(4.6, 1.9, -3.4);
+    carStage.add(carRimLight);
+
+    const porscheModelUrl = 'https://cdn.jsdelivr.net/gh/playcanvas/web-components@main/examples/assets/models/porsche-911-carrera-4s.glb';
+    let carModel = null;
+    let carLoadPromise = null;
+
+    function responsiveCarScale(){
+      const aspect = innerWidth / innerHeight;
+      return Math.min(1, Math.max(.60, aspect / .92));
+    }
+    let carFitScale = responsiveCarScale();
+
+    function loadPorsche(){
+      if(carLoadPromise) return carLoadPromise;
+      carLoadPromise = new Promise((resolve,reject)=>{
+        const loader = new GLTFLoader();
+        loader.load(
+          porscheModelUrl,
+          gltf=>{
+            carModel = gltf.scene;
+            carModel.traverse(obj=>{
+              if(!obj.isMesh) return;
+              obj.castShadow = true;
+              obj.receiveShadow = true;
+              const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+              materials.forEach(mat=>{
+                if(!mat) return;
+                const name=(mat.name||'').toLowerCase();
+                if(name === 'coat' || name.includes('paint')){
+                  if(mat.color) mat.color.set('#ff79bd');
+                  if('metalness' in mat) mat.metalness = .16;
+                  if('roughness' in mat) mat.roughness = .19;
+                  if('clearcoat' in mat) mat.clearcoat = 1;
+                  if('clearcoatRoughness' in mat) mat.clearcoatRoughness = .06;
+                  if('envMapIntensity' in mat) mat.envMapIntensity = 1.7;
+                  mat.needsUpdate = true;
+                }
+              });
+            });
+
+            const box = new THREE.Box3().setFromObject(carModel);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            carModel.position.sub(center);
+            carRoot.add(carModel);
+
+            const maxDim = Math.max(size.x,size.y,size.z) || 1;
+            carRoot.scale.setScalar(5.35 / maxDim);
+            carRoot.rotation.y = -.70;
+
+            const fitted = new THREE.Box3().setFromObject(carRoot);
+            carRoot.position.y += -1.10 - fitted.min.y;
+            resolve(carModel);
+          },
+          evt=>{
+            if(evt.total && phase==='car-loading'){
+              const pct=Math.max(1,Math.min(99,Math.round((evt.loaded/evt.total)*100)));
+              statusText.textContent='LOADING PORSCHE · '+pct+'%';
+            }
+          },
+          reject
+        );
+      });
+      return carLoadPromise;
+    }
+
+    // Warm the asset cache after the opening scene is stable, without blocking the intro.
+    setTimeout(()=>loadPorsche().catch(()=>{}), 1500);
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let hoverLobeId = null, selectedData = null, phase='pen', transition=null, pointerDown={x:0,y:0};
@@ -722,6 +846,7 @@
     }
     const heroCopy=document.querySelector('#heroCopy');
     const brainUI=document.querySelector('#brainUI');
+    const carUI=document.querySelector('#carUI');
     const legend=document.querySelector('#legend');
     const lobeCard=document.querySelector('#lobeCard');
     const lobeName=document.querySelector('#lobeName');
@@ -803,7 +928,113 @@
       const begin=performance.now(); const from=brain.scale.x;
       const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+(sceneFitScale-.01)*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
     }
-    backBtn.addEventListener('click', exitBrain);
+    async function enterCar(){
+      if(phase!=='brain') return;
+      phase='car-loading';
+      controls.enabled=false;
+      controls.autoRotate=false;
+      lobeCard.classList.remove('show');
+      statusText.textContent='LOADING PORSCHE…';
+
+      try {
+        await loadPorsche();
+      } catch(err) {
+        console.error('Porsche model failed to load', err);
+        phase='brain';
+        controls.enabled=true;
+        controls.autoRotate=true;
+        statusText.textContent='DRAG · ZOOM · SELECT';
+        return;
+      }
+
+      phase='transition';
+      brainUI.classList.remove('visible');
+      legend.classList.remove('visible');
+      backBtn.classList.remove('show');
+      statusText.textContent='ENTERING AUTOMOTIVE SCENE…';
+
+      startTransition(camera.position,new THREE.Vector3(0,.12,3.25),850,()=>{
+        brain.visible=false;
+        carStage.visible=true;
+        carStage.scale.setScalar(.01);
+        camera.position.set(5.25,1.85,6.35);
+        controls.target.set(0,-.06,0);
+        controls.minDistance=3.45;
+        controls.maxDistance=9.5;
+
+        const begin=performance.now();
+        const grow=()=>{
+          const t=Math.min(1,(performance.now()-begin)/760), e=easeInOut(t);
+          carStage.scale.setScalar(.01+(carFitScale-.01)*e);
+          if(t<1) requestAnimationFrame(grow);
+          else {
+            phase='car';
+            controls.enabled=true;
+            controls.autoRotate=true;
+            controls.autoRotateSpeed=.62;
+            carUI.classList.add('visible');
+            backBtn.textContent='← Back to brain';
+            backBtn.setAttribute('aria-label','Back to brain');
+            backBtn.classList.add('show');
+            statusText.textContent='PORSCHE 911 · DRAG · ZOOM';
+          }
+        };
+        grow();
+      });
+    }
+
+    function exitCar(){
+      if(phase!=='car') return;
+      phase='transition';
+      controls.enabled=false;
+      controls.autoRotate=false;
+      carUI.classList.remove('visible');
+      backBtn.classList.remove('show');
+      statusText.textContent='RETURNING TO NEURAL MAP…';
+
+      const begin=performance.now();
+      const from=carStage.scale.x;
+      const shrink=()=>{
+        const t=Math.min(1,(performance.now()-begin)/480), e=easeInOut(t);
+        carStage.scale.setScalar(from*(1-e)+.01*e);
+        if(t<1) requestAnimationFrame(shrink);
+        else {
+          carStage.visible=false;
+          brain.visible=true;
+          brain.scale.setScalar(.01);
+          camera.position.set(0,.15,8.2);
+          controls.target.set(0,.05,0);
+          controls.minDistance=5.7;
+          controls.maxDistance=11;
+          controls.autoRotateSpeed=.45;
+
+          const st=performance.now();
+          const pop=()=>{
+            const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q);
+            brain.scale.setScalar(.01+(sceneFitScale-.01)*ee);
+            if(q<1) requestAnimationFrame(pop);
+            else {
+              phase='brain';
+              controls.enabled=true;
+              controls.autoRotate=true;
+              brainUI.classList.add('visible');
+              legend.classList.add('visible');
+              backBtn.textContent='← Back to pen';
+              backBtn.setAttribute('aria-label','Back to pen');
+              backBtn.classList.add('show');
+              statusText.textContent='DRAG · ZOOM · SELECT';
+            }
+          };
+          pop();
+        }
+      };
+      shrink();
+    }
+
+    backBtn.addEventListener('click',()=>{
+      if(phase==='car') exitCar();
+      else if(phase==='brain') exitBrain();
+    });
 
     function normalizedPointer(e){ const rect=canvas.getBoundingClientRect(); mouse.x=((e.clientX-rect.left)/rect.width)*2-1; mouse.y=-((e.clientY-rect.top)/rect.height)*2+1; }
     canvas.addEventListener('pointerdown',e=>{
@@ -877,8 +1108,16 @@
       const moved=Math.hypot(e.clientX-pointerDown.x,e.clientY-pointerDown.y);
       if(moved>8) return;
       if(phase==='brain'){
-        normalizedPointer(e); raycaster.setFromCamera(mouse,camera); const hit=raycaster.intersectObjects(interactive,false)[0];
-        if(hit){ const d=hit.object.userData; window.open(d.url,'_blank','noopener,noreferrer'); }
+        normalizedPointer(e);
+        raycaster.setFromCamera(mouse,camera);
+        const hit=raycaster.intersectObjects(interactive,false)[0];
+        if(hit){
+          const d=hit.object.userData;
+          window.open(d.url,'_blank','noopener,noreferrer');
+          return;
+        }
+        // A clean click on empty brain-scene space advances to the Porsche scene.
+        enterCar();
       }
     });
     canvas.addEventListener('pointercancel',()=>{
@@ -895,6 +1134,8 @@
       sceneFitScale = responsiveSceneScale();
       if(phase==='pen') pen.scale.setScalar(sceneFitScale);
       if(phase==='brain') brain.scale.setScalar(sceneFitScale);
+      carFitScale = responsiveCarScale();
+      if(phase==='car') carStage.scale.setScalar(carFitScale);
     });
 
     const clock=new THREE.Clock();
