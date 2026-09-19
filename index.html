@@ -531,15 +531,10 @@
           obj.receiveShadow=false;
           obj.frustumCulled=true;
           obj.renderOrder=1;
-          obj.material=humanSkinMat.clone();
-
-          // Add a very subtle geometric edge duplicate for anatomical readability.
-          const edge=obj.clone();
-          edge.material=humanEdgeMat.clone();
-          edge.renderOrder=2;
-          edge.scale.multiplyScalar(1.003);
-          edge.userData.isHumanEdge=true;
-          obj.parent?.add(edge);
+          const mat=humanSkinMat.clone();
+          mat.emissive=new THREE.Color(0x173a52);
+          mat.emissiveIntensity=.20;
+          obj.material=mat;
         });
 
         humanBodyLayer.add(model);
