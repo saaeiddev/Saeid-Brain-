@@ -82,6 +82,213 @@ const replacement = `    // ------- High-detail anatomical brain asset -------
       document.querySelector('.brain-title p').textContent = 'Anatomical model could not load. Please refresh.';
     });
 
+    // ------- High-quality human body + peripheral nervous system -------
+    // Anatomical skin model: BodyParts3D via human-body-simulator.
+    // The body is a separate visual layer; the portfolio brain and all lobe links remain untouched.
+    const bodyLayer = new THREE.Group();
+    bodyLayer.name = 'deployed-human-body-layer';
+    brain.add(bodyLayer);
+
+    const nerveLayer = new THREE.Group();
+    nerveLayer.name = 'deployed-peripheral-nervous-system';
+    brain.add(nerveLayer);
+
+    const bodyMaterial = new THREE.MeshPhysicalMaterial({
+      color:0x8db7cf,
+      roughness:.46,
+      metalness:0,
+      transparent:true,
+      opacity:.34,
+      clearcoat:.18,
+      clearcoatRoughness:.50,
+      emissive:0x17394a,
+      emissiveIntensity:.18,
+      depthWrite:false,
+      side:THREE.DoubleSide
+    });
+
+    const nerveCoreMaterial = new THREE.MeshBasicMaterial({
+      color:0xedffff,
+      transparent:true,
+      opacity:1,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+
+    const nerveMaterial = new THREE.MeshBasicMaterial({
+      color:0x54e5ff,
+      transparent:true,
+      opacity:.96,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+
+    const nerveGlowMaterial = new THREE.MeshBasicMaterial({
+      color:0x27d7ff,
+      transparent:true,
+      opacity:.26,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending
+    });
+
+    function addNerve(points,radius=.018,material=nerveMaterial){
+      const curve = new THREE.CatmullRomCurve3(points,false,'catmullrom',.45);
+      const halo = new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(36,points.length*20),radius*3.0,8,false),
+        nerveGlowMaterial
+      );
+      halo.renderOrder = 6;
+      nerveLayer.add(halo);
+
+      const tube = new THREE.Mesh(
+        new THREE.TubeGeometry(curve,Math.max(36,points.length*20),radius,10,false),
+        material
+      );
+      tube.renderOrder = 7;
+      nerveLayer.add(tube);
+      return tube;
+    }
+
+    function addNerveTip(p,r=.026){
+      const tip = new THREE.Mesh(
+        new THREE.SphereGeometry(r,14,14),
+        new THREE.MeshBasicMaterial({
+          color:0xeaffff,
+          transparent:true,
+          opacity:.96,
+          depthWrite:false,
+          blending:THREE.AdditiveBlending
+        })
+      );
+      tip.position.copy(p);
+      tip.renderOrder = 8;
+      nerveLayer.add(tip);
+    }
+
+    // Central nervous continuation underneath the anatomical brain.
+    addNerve([
+      new THREE.Vector3(.10,-1.16,.24),
+      new THREE.Vector3(.06,-1.38,.27),
+      new THREE.Vector3(.03,-1.62,.29),
+      new THREE.Vector3(.01,-1.88,.31),
+      new THREE.Vector3(0,-2.15,.32),
+      new THREE.Vector3(0,-2.43,.33),
+      new THREE.Vector3(0,-2.72,.34)
+    ],.050,nerveCoreMaterial);
+
+    // Spinal branches through the trunk.
+    for(let i=0;i<8;i++){
+      const y=-1.45-i*.16;
+      const reach=.35+i*.045;
+      [-1,1].forEach(side=>{
+        addNerve([
+          new THREE.Vector3(0,y,.31),
+          new THREE.Vector3(side*.14,y-.01,.34),
+          new THREE.Vector3(side*.29,y-.025,.37),
+          new THREE.Vector3(side*reach,y-.04,.39)
+        ],.012);
+      });
+    }
+
+    function addArmNerves(side){
+      const shoulder = new THREE.Vector3(side*.70,-1.26,.37);
+      const upper = new THREE.Vector3(side*.76,-1.56,.40);
+      const elbow = new THREE.Vector3(side*.78,-1.85,.42);
+      const fore = new THREE.Vector3(side*.78,-2.14,.44);
+      const wrist = new THREE.Vector3(side*.76,-2.40,.46);
+      const palm = new THREE.Vector3(side*.75,-2.54,.47);
+
+      addNerve([
+        new THREE.Vector3(side*.05,-1.22,.28),
+        new THREE.Vector3(side*.26,-1.23,.31),
+        new THREE.Vector3(side*.48,-1.24,.34),
+        shoulder
+      ],.028,nerveCoreMaterial);
+
+      addNerve([shoulder,upper,elbow,fore,wrist,palm],.022,nerveCoreMaterial);
+
+      addNerve([
+        shoulder.clone().add(new THREE.Vector3(side*.035,.03,.025)),
+        upper.clone().add(new THREE.Vector3(side*.03,.02,.04)),
+        elbow.clone().add(new THREE.Vector3(side*.025,.01,.045)),
+        fore.clone().add(new THREE.Vector3(side*.02,.01,.04)),
+        wrist.clone().add(new THREE.Vector3(side*.015,.005,.025))
+      ],.010);
+
+      addNerve([
+        shoulder.clone().add(new THREE.Vector3(-side*.03,-.025,-.02)),
+        upper.clone().add(new THREE.Vector3(-side*.025,-.02,-.035)),
+        elbow.clone().add(new THREE.Vector3(-side*.02,-.01,-.04)),
+        fore.clone().add(new THREE.Vector3(-side*.015,-.01,-.035)),
+        wrist.clone().add(new THREE.Vector3(-side*.01,-.005,-.025))
+      ],.010);
+
+      // Five digital nerve paths to the fingertips.
+      const offsets=[.105,.052,0,-.052,-.105];
+      const lengths=[.16,.20,.22,.20,.16];
+      offsets.forEach((off,index)=>{
+        const base=new THREE.Vector3(palm.x+side*.025,palm.y+off,palm.z+.005);
+        const tip=new THREE.Vector3(
+          base.x+side*lengths[index],
+          base.y+off*.16,
+          base.z+.02
+        );
+        addNerve([
+          palm,
+          new THREE.Vector3(palm.x+side*.035,palm.y+off*.46,palm.z+.012),
+          base,
+          tip
+        ],.0075);
+        addNerveTip(tip,.021);
+      });
+
+      const thumbBase=new THREE.Vector3(palm.x+side*.04,palm.y-.095,palm.z+.015);
+      const thumbTip=new THREE.Vector3(palm.x+side*.18,palm.y-.18,palm.z+.035);
+      addNerve([palm,thumbBase,thumbTip],.008);
+      addNerveTip(thumbTip,.023);
+    }
+
+    addArmNerves(-1);
+    addArmNerves(1);
+
+    const BODY_MODEL_URL = 'https://cdn.jsdelivr.net/gh/yamz8/human-body-simulator@main/public/models/anatomy-skin.glb';
+    gltfLoader.load(BODY_MODEL_URL, gltf => {
+      const body = gltf.scene;
+      body.name = 'bodyparts3d-human-skin';
+
+      body.updateMatrixWorld(true);
+      const sourceBox = new THREE.Box3().setFromObject(body);
+      const sourceSize = sourceBox.getSize(new THREE.Vector3());
+
+      // Fill the current brain view vertically while keeping the head behind the portfolio brain.
+      const targetHeight = 5.70;
+      const scale = targetHeight / Math.max(sourceSize.y,.0001);
+      body.scale.setScalar(scale);
+      body.updateMatrixWorld(true);
+
+      const scaledBox = new THREE.Box3().setFromObject(body);
+      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+
+      body.position.x -= scaledCenter.x;
+      body.position.y += 2.72 - scaledBox.max.y;
+      body.position.z += .22 - scaledCenter.z;
+
+      body.traverse(obj => {
+        if(!obj.isMesh) return;
+        obj.castShadow = false;
+        obj.receiveShadow = false;
+        obj.renderOrder = 2;
+        obj.material = bodyMaterial.clone();
+      });
+
+      bodyLayer.add(body);
+    }, undefined, err => {
+      console.error('Human anatomy model failed to load', err);
+    });
+
+    // Attribution for the deployed anatomical body asset.
+    console.info('Human body: BodyParts3D, Database Center for Life Science, CC BY-SA 2.1 Japan.');
+
 `;
 html = html.slice(0,start) + replacement + html.slice(end);
 html = html.replace("        if(hover){ hover.material.emissiveIntensity=.34; hover.scale.multiplyScalar(1/1.035); }", "        if(hover){ hover.material.emissiveIntensity=.12; hover.scale.multiplyScalar(1/1.012); }");
