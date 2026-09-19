@@ -134,6 +134,23 @@
     .car-credit a { color:#aebbd4; text-decoration:none; border-bottom:1px solid rgba(174,187,212,.28); pointer-events:auto; }
     .car-credit a:hover { color:#fff; }
 
+    #carContactToast {
+      position:fixed; left:50%; bottom:max(86px, calc(env(safe-area-inset-bottom) + 64px)); z-index:30;
+      transform:translate(-50%,14px) scale(.97);
+      padding:12px 18px; border-radius:16px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(8,12,25,.62);
+      backdrop-filter:blur(22px) saturate(145%);
+      -webkit-backdrop-filter:blur(22px) saturate(145%);
+      box-shadow:0 18px 58px rgba(0,0,0,.38);
+      color:#fff; font-size:14px; font-weight:600; letter-spacing:.08em;
+      opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .22s ease, transform .22s ease, visibility .22s ease;
+    }
+    #carContactToast.show {
+      opacity:1; visibility:visible; transform:translate(-50%,0) scale(1);
+    }
+
     .loading { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:#050712; transition:opacity .7s ease, visibility .7s ease; }
     .loading.done { opacity:0; visibility:hidden; }
     .loader-inner { text-align:center; }
@@ -212,6 +229,8 @@
       3D model by <a href="https://sketchfab.com/3d-models/free-porsche-911-carrera-4s-d01b254483794de3819786d93e0e1ebf" target="_blank" rel="noopener noreferrer">Lionsharp Studios · CC BY-SA</a>
     </div>
   </div>
+
+  <div id="carContactToast" role="status" aria-live="polite">09016979635</div>
 
   <div class="legend" id="legend">
     <div class="legend-item"><span class="swatch" style="color:#4ae7ff;background:#4ae7ff"></span>Frontal · Main site</div>
@@ -775,6 +794,10 @@
     const porscheModelUrl = './assets/porsche-911-carrera-4s.glb';
     let carModel = null;
     let carLoadPromise = null;
+    let carHitBounds = null;
+    let carLongAxis = 'x';
+    let carFrontSign = 1;
+    let carToastTimer = null;
 
     function responsiveCarScale(){
       const aspect = innerWidth / innerHeight;
@@ -826,6 +849,31 @@
               carModel.position.sub(center);
               carRoot.add(carModel);
 
+              carModel.updateMatrixWorld(true);
+              carHitBounds = new THREE.Box3().setFromObject(carModel);
+              const hitSize = carHitBounds.getSize(new THREE.Vector3());
+              carLongAxis = hitSize.x >= hitSize.z ? 'x' : 'z';
+
+              const semanticFront = [];
+              carModel.traverse(obj=>{
+                if(!obj.isMesh) return;
+                const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                const text = [obj.name, ...mats.map(m=>m?.name||'')].join(' ').toLowerCase();
+                if(/(head.?light|headlamp|front.?light)/.test(text) && !/(tail|rear|brake)/.test(text)){
+                  const b = new THREE.Box3().setFromObject(obj);
+                  const p = b.getCenter(new THREE.Vector3());
+                  carModel.worldToLocal(p);
+                  semanticFront.push(carLongAxis==='x' ? p.x : p.z);
+                }
+              });
+              if(semanticFront.length){
+                const avg = semanticFront.reduce((a,b)=>a+b,0)/semanticFront.length;
+                carFrontSign = avg >= 0 ? 1 : -1;
+              } else {
+                // This Porsche asset faces +X in its source coordinate system.
+                carFrontSign = 1;
+              }
+
               const maxDim = Math.max(size.x,size.y,size.z) || 1;
               carRoot.scale.setScalar(5.35 / maxDim);
               carRoot.rotation.y = -.70;
@@ -868,6 +916,7 @@
     const brainUI=document.querySelector('#brainUI');
     const carUI=document.querySelector('#carUI');
     const carSubtitle=document.querySelector('#carSubtitle');
+    const carContactToast=document.querySelector('#carContactToast');
     const legend=document.querySelector('#legend');
     const lobeCard=document.querySelector('#lobeCard');
     const lobeName=document.querySelector('#lobeName');
@@ -949,6 +998,56 @@
       const begin=performance.now(); const from=brain.scale.x;
       const shrink=()=>{ const t=Math.min(1,(performance.now()-begin)/500), e=easeInOut(t); brain.scale.setScalar(from*(1-e)+.01*e); if(t<1) requestAnimationFrame(shrink); else { brain.visible=false; pen.visible=true; pen.scale.setScalar(.01); camera.position.set(0,.2,10.7); const st=performance.now(); const pop=()=>{const q=Math.min(1,(performance.now()-st)/650), ee=easeInOut(q); pen.scale.setScalar(.01+(sceneFitScale-.01)*ee); if(q<1) requestAnimationFrame(pop); else { phase='pen'; heroCopy.style.opacity='1'; heroCopy.style.transform='translate(-50%, 0)'; statusText.textContent='INTERACTIVE PORTFOLIO · 3D'; }}; pop(); }}; shrink();
     }
+    function showCarPhone(){
+      clearTimeout(carToastTimer);
+      carContactToast.textContent='09016979635';
+      carContactToast.classList.add('show');
+      carToastTimer=setTimeout(()=>carContactToast.classList.remove('show'),3200);
+    }
+
+    function carSemanticText(obj){
+      const parts=[];
+      let current=obj;
+      for(let i=0;i<4 && current;i++,current=current.parent){
+        parts.push(current.name||'');
+        if(current.isMesh){
+          const mats=Array.isArray(current.material)?current.material:[current.material];
+          mats.forEach(m=>parts.push(m?.name||''));
+        }
+      }
+      return parts.join(' ').toLowerCase();
+    }
+
+    function classifyCarHit(hit){
+      if(!carModel || !carHitBounds || !hit) return null;
+
+      const text=carSemanticText(hit.object);
+      if(/(head.?light|headlamp|front.?light)/.test(text) && !/(tail|rear|brake)/.test(text)) return 'instagram';
+      if(/(hood|bonnet|front.?lid)/.test(text)) return 'telegram';
+      if(/(trunk|boot|deck.?lid|rear.?lid)/.test(text)) return 'phone';
+
+      // Coordinate fallback: classify the physical region even when the GLB mesh names
+      // are generic. The result follows the car as it rotates because the point is
+      // transformed back into car-model local space.
+      const local=carModel.worldToLocal(hit.point.clone());
+      const size=carHitBounds.getSize(new THREE.Vector3());
+      const center=carHitBounds.getCenter(new THREE.Vector3());
+      const longHalf=(carLongAxis==='x' ? size.x : size.z)*.5 || 1;
+      const latHalf=(carLongAxis==='x' ? size.z : size.x)*.5 || 1;
+      const longCoord=(carLongAxis==='x' ? local.x-center.x : local.z-center.z) / longHalf * carFrontSign;
+      const latCoord=(carLongAxis==='x' ? local.z-center.z : local.x-center.x) / latHalf;
+      const vertical=(local.y-carHitBounds.min.y)/(size.y||1);
+
+      // Front lamps sit at the front corners.
+      if(longCoord>.58 && Math.abs(latCoord)>.30 && vertical>.20 && vertical<.78) return 'instagram';
+      // Hood: upper central front bodywork.
+      if(longCoord>.18 && longCoord<.78 && Math.abs(latCoord)<.72 && vertical>.47) return 'telegram';
+      // Rear deck / trunk: upper central rear bodywork.
+      if(longCoord<-.32 && Math.abs(latCoord)<.72 && vertical>.42) return 'phone';
+
+      return null;
+    }
+
     async function enterCar(){
       if(phase!=='brain') return;
       phase='car-loading';
@@ -1019,6 +1118,8 @@
       controls.enabled=false;
       controls.autoRotate=false;
       carUI.classList.remove('visible');
+      carContactToast.classList.remove('show');
+      clearTimeout(carToastTimer);
       backBtn.classList.remove('show');
       statusText.textContent='RETURNING TO NEURAL MAP…';
 
@@ -1151,11 +1252,29 @@
     // Reliable brain -> Porsche navigation. OrbitControls can consume pointer gestures,
     // so use the browser's click event for a clean tap/click on empty canvas space.
     canvas.addEventListener('click',e=>{
-      if(phase!=='brain') return;
-      normalizedPointer(e);
-      raycaster.setFromCamera(mouse,camera);
-      const hit=raycaster.intersectObjects(interactive,false)[0];
-      if(!hit) enterCar();
+      if(phase==='brain'){
+        normalizedPointer(e);
+        raycaster.setFromCamera(mouse,camera);
+        const hit=raycaster.intersectObjects(interactive,false)[0];
+        if(!hit) enterCar();
+        return;
+      }
+
+      if(phase==='car' && carModel){
+        // Do not trigger contact actions after an orbit drag.
+        if(Math.hypot(e.clientX-pointerDown.x,e.clientY-pointerDown.y)>8) return;
+        normalizedPointer(e);
+        raycaster.setFromCamera(mouse,camera);
+        const hit=raycaster.intersectObject(carModel,true)[0];
+        const action=classifyCarHit(hit);
+        if(action==='instagram'){
+          window.open('https://instagram.com/saeidartz','_blank','noopener,noreferrer');
+        }else if(action==='telegram'){
+          window.open('https://t.me/amirsaeiddehghan','_blank','noopener,noreferrer');
+        }else if(action==='phone'){
+          showCarPhone();
+        }
+      }
     });
 
     canvas.addEventListener('pointercancel',()=>{
